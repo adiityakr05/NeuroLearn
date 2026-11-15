@@ -5,6 +5,7 @@ Phase 2.5 — Retention Prediction and Study Event API
 
 import logging
 from backend.study_planner import StudyPlannerService
+from backend.study_session_service import StudySessionService
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException
@@ -296,6 +297,26 @@ def get_study_priorities(user_id: str):
         "priorities": priorities,
         "count": len(priorities),
     }
+
+# --------------------------------------------------
+# STUDY SESSION API
+# --------------------------------------------------
+
+@app.get("/api/v1/study-plan/{user_id}/session")
+def generate_study_session(
+    user_id: str,
+    total_minutes: int = 30,
+):
+    try:
+        return StudySessionService.generate_session(
+            user_id=user_id,
+            total_minutes=total_minutes,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        )
 
 # --------------------------------------------------
 # REVIEW HISTORY
