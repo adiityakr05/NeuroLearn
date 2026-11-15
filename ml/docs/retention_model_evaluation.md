@@ -24,12 +24,12 @@ The temporal split sorts review events chronologically and partitions them into 
 
 | Metric | Logistic Regression | Hist Gradient Boosting |
 |---|---:|---:|
-| Brier Score | 0.15999 | 0.10113 |
-| Log Loss | 0.49957 | 0.33484 |
-| ROC-AUC | 0.90585 | 0.92295 |
-| Accuracy | 83.25% | 86.49% |
-| Precision | 80.33% | 84.35% |
-| Recall | 96.00% | 95.53% |
+| Brier Score | 0.14989 | 0.06583 |
+| Log Loss | 0.47089 | 0.24086 |
+| ROC-AUC | 0.95300 | 0.96128 |
+| Accuracy | 89.28% | 91.59% |
+| Precision | 85.54% | 90.38% |
+| Recall | 94.55% | 93.09% |
 
 Hist Gradient Boosting performs better overall on Brier score, log loss, ROC-AUC, accuracy, and precision. Logistic Regression has marginally higher recall.
 
@@ -89,3 +89,4 @@ The two evaluation strategies use the same underlying synthetic dataset. Their t
 Hist Gradient Boosting is the leading candidate among the evaluated retention models on the current synthetic benchmarks.
 
 The user-disjoint split passes the user-isolation checks. These findings support continued ML experimentation, but do not establish production readiness or real-world effectiveness.
+
