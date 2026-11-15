@@ -16,12 +16,13 @@ DATABASE_DIR = PROJECT_ROOT / "data"
 DATABASE_PATH = DATABASE_DIR / "neurolearn.db"
 
 
+
 def initialize_database() -> None:
     """Create the database and required tables if they do not exist."""
     DATABASE_DIR.mkdir(parents=True, exist_ok=True)
 
     with get_connection() as connection:
-        
+
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS review_schedules (
@@ -45,6 +46,24 @@ def initialize_database() -> None:
             ON review_schedules (user_id, next_review_at)
             """
         )
+
+        # NEW: Study session completion history
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS study_session_completions (
+                completion_id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                session_date TEXT NOT NULL,
+                planned_minutes INTEGER NOT NULL,
+                actual_minutes INTEGER NOT NULL,
+                topics_planned TEXT NOT NULL,
+                topics_completed TEXT NOT NULL,
+                completion_rate REAL NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+
 
 
 @contextmanager

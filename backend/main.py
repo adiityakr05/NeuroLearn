@@ -6,6 +6,7 @@ Phase 2.5 — Retention Prediction and Study Event API
 import logging
 from backend.study_planner import StudyPlannerService
 from backend.study_session_service import StudySessionService
+from backend.study_completion_service import StudyCompletionService
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException
@@ -317,6 +318,45 @@ def generate_study_session(
             status_code=400,
             detail=str(exc),
         )
+
+
+# --------------------------------------------------
+# STUDY COMPLETION API
+# --------------------------------------------------
+
+from pydantic import BaseModel, Field
+
+
+class StudyCompletionRequest(BaseModel):
+    user_id: str
+    planned_minutes: int = Field(gt=0)
+    actual_minutes: int = Field(ge=0)
+    topics_planned: list[str]
+    topics_completed: list[str]
+
+
+@app.post("/api/v1/study-plan/completions", status_code=201)
+def record_study_completion(request: StudyCompletionRequest):
+    try:
+        return StudyCompletionService.record_completion(
+            **request.model_dump()
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.get("/api/v1/study-plan/{user_id}/completions")
+def get_study_completions(user_id: str):
+    history = StudyCompletionService.get_completion_history(
+        user_id
+    )
+
+    return {
+        "user_id": user_id,
+        "history": history,
+        "count": len(history),
+    }
+
 
 # --------------------------------------------------
 # REVIEW HISTORY
