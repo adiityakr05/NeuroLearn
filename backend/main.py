@@ -18,6 +18,9 @@ from backend.scheduling_service import PersonalizedSchedulingService
 from backend.retention_recommendation_service import (
     RetentionRecommendationService,
 )
+from backend.adaptive_topic_prioritization_service import (
+    AdaptiveTopicPrioritizationService,
+)
 
 from ml.data.schemas import ReviewEventRecord
 from ml.service.contracts import PredictionRequestItem, BatchPredictionRequest
@@ -456,5 +459,17 @@ def health_check():
 )
 def get_retention_recommendations(user_id: str):
     return RetentionRecommendationService.get_recommendations(
+        user_id
+    )
+
+# --------------------------------------------------
+# ADAPTIVE TOPIC PRIORITIZATION
+# --------------------------------------------------
+
+@app.get(
+    "/api/v1/study-plan/{user_id}/topic-priorities",
+)
+def get_adaptive_topic_priorities(user_id: str):
+    return AdaptiveTopicPrioritizationService.prioritize_topics(
         user_id
     )
