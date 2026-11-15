@@ -378,6 +378,30 @@ def get_review_schedules(user_id: str):
         )
 
 
+# --------------------------------------------------
+# REVIEW SCHEDULE DUE STATUS REFRESH
+# --------------------------------------------------
+
+@app.post("/api/v1/retention/schedules/{user_id}/refresh-due")
+def refresh_due_status(user_id: str):
+    try:
+        updated_count = ScheduleRepository.refresh_due_status(user_id)
+
+        return {
+            "user_id": user_id,
+            "updated_count": updated_count,
+            "schedules": ScheduleRepository.get_user_schedules(user_id),
+        }
+
+    except Exception:
+        logger.exception("Schedule due-status refresh failed")
+        raise HTTPException(
+            status_code=500,
+            detail="Schedule due-status refresh failed.",
+        )
+
+
+
 @app.get("/api/v1/retention/schedules/{user_id}/due")
 def get_due_review_schedules(user_id: str):
     try:

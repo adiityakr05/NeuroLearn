@@ -111,3 +111,27 @@ class ScheduleRepository:
             ).fetchall()
 
             return [dict(row) for row in rows]
+    
+
+    @staticmethod
+    def refresh_due_status(user_id: str) -> int:
+        """Refresh due flags for all schedules belonging to a learner."""
+
+        now = datetime.now(timezone.utc).isoformat()
+
+        with get_connection() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE review_schedules
+                SET is_review_due = CASE
+                    WHEN next_review_at <= ? THEN 1
+                    ELSE 0
+                END,
+                updated_at = ?
+                WHERE user_id = ?
+                """,
+                (now, now, user_id),
+            )
+
+            return cursor.rowcount
+
