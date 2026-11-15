@@ -15,6 +15,7 @@ from ml.core.baselines import calculate_retention
 from ml.data.preprocessor import RetentionFeaturePreprocessor, extract_features_and_target
 from ml.data.schemas import ReviewEventRecord
 from ml.models.evaluator import EvaluationMetrics, evaluate_predictions
+from ml.models.calibrator import PlattCalibrator, compute_calibration_curve
 
 DEFAULT_RANDOM_STATE: Final[int] = 42
 DEFAULT_TRAIN_RATIO: Final[float] = 0.70
@@ -750,12 +751,34 @@ def run_phase_2_4_4a_experiment(
         ).to_dict(),
     }
 
+
+    # 8. Probability Calibration and Reliability Analysis
+    calibration_analysis = {}
+    for model_name, val_probs, test_probs in (
+        ("logistic_regression", val_lr_prob, test_lr_prob),
+        ("hist_gradient_boosting", val_gb_prob, test_gb_prob),
+    ):
+        calibrator = PlattCalibrator().fit(val_probs, y_val)
+        calibrated_test_probs = calibrator.transform(test_probs)
+
+        calibration_analysis[model_name] = {
+            "calibrator": calibrator.to_dict(),
+            "raw_test": compute_calibration_curve(y_test, test_probs).to_dict(),
+            "calibrated_test": compute_calibration_curve(
+                y_test, calibrated_test_probs
+            ).to_dict(),
+            "validation_sample_count": len(y_val),
+            "test_sample_count": len(y_test),
+            "calibration_fit_partition": "temporal_validation_only",
+        }
+
     return {
         "dataset_notice": "ALL DATA AND RESULTS ARE STRICTLY SYNTHETIC SIMULATION BENCHMARKS.",
         "temporal_split_metadata": temp_split_meta,
         "user_disjoint_split_metadata": user_split_meta,
         "validation_metrics": val_metrics,
         "final_test_metrics": test_metrics,
+        "calibration_analysis": calibration_analysis,
         "user_disjoint_test_metrics": user_disjoint_test_metrics,
         "model_convergence": {
             "logistic_regression_iterations": lr_model.n_iter_,

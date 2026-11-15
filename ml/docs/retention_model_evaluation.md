@@ -1,4 +1,4 @@
-﻿# Retention Model Evaluation Report
+# Retention Model Evaluation Report
 
 ## 1. Overview
 
@@ -60,9 +60,9 @@ The user-disjoint partition was checked for user leakage.
 
 | Check | Overlapping users |
 |---|---:|
-| Training–Validation | 0 |
-| Training–Test | 0 |
-| Validation–Test | 0 |
+| Training�Validation | 0 |
+| Training�Test | 0 |
+| Validation�Test | 0 |
 
 The temporal and user-disjoint test sets are different:
 
@@ -90,3 +90,34 @@ Hist Gradient Boosting is the leading candidate among the evaluated retention mo
 
 The user-disjoint split passes the user-isolation checks. These findings support continued ML experimentation, but do not establish production readiness or real-world effectiveness.
 
+
+## 8. Probability Calibration and Reliability Analysis
+
+Platt scaling was integrated into the temporal experiment for Logistic Regression and Histogram Gradient Boosting.
+
+**Calibration protocol**
+- Calibrators were fitted exclusively on temporal validation predictions and targets (4,805 events).
+- The final temporal test set (4,806 events) was not used during calibration fitting.
+- Raw benchmark metrics in Section 3 remain unchanged.
+- Reliability reports use 10 equal-width probability bins.
+- ECE is weighted average calibration error; MCE is the largest occupied-bin calibration error.
+- Brier score measures mean squared probability error; lower is better.
+
+### Temporal Test Calibration Results
+
+| Model | Raw ECE | Calibrated ECE | Raw MCE | Calibrated MCE | Raw Brier | Calibrated Brier |
+|---|---:|---:|---:|---:|---:|---:|
+| Logistic Regression | 0.23570 | 0.04046 | 0.38363 | 0.21592 | 0.14989 | 0.07907 |
+| Hist Gradient Boosting | 0.03051 | 0.01024 | 0.03922 | 0.08067 | 0.06583 | 0.06519 |
+
+### Interpretation
+
+- Logistic Regression probability calibration improved substantially after Platt scaling.
+- Histogram Gradient Boosting already showed comparatively strong raw calibration and improved further.
+- Calibrated Brier score improved substantially for Logistic Regression and slightly for Histogram Gradient Boosting.
+- Calibration does not guarantee improved ranking or classification accuracy; it adjusts probability estimates.
+- Calibration performance remains specific to this synthetic temporal test distribution.
+
+**Reliability limitation:** ECE and MCE depend on binning and sample composition. They should not be interpreted as universal calibration guarantees.
+
+All calibration results are synthetic simulation benchmarks and are not evidence of real-world student retention.
