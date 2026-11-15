@@ -4,6 +4,7 @@ Phase 2.5 — Retention Prediction and Study Event API
 """
 
 import logging
+from backend.study_planner import StudyPlannerService
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException
@@ -280,6 +281,21 @@ def create_review_event(request: ReviewEventRequest):
             detail="Review event storage failed.",
         )
 
+# --------------------------------------------------
+# STUDY PRIORITY API
+# --------------------------------------------------
+
+@app.get("/api/v1/study-plan/{user_id}/priorities")
+def get_study_priorities(user_id: str):
+    priorities = StudyPlannerService.prioritize_due_reviews(
+        user_id
+    )
+
+    return {
+        "user_id": user_id,
+        "priorities": priorities,
+        "count": len(priorities),
+    }
 
 # --------------------------------------------------
 # REVIEW HISTORY
