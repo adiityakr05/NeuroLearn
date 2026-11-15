@@ -1,0 +1,33 @@
+{
+  "format_version": "1.0",
+  "models": [
+    {
+      "model_name": "retention_logistic_regression",
+      "model_version": "1.0.0",
+      "model_type": "ScipyLogisticRegression",
+      "created_at": "2026-10-05T10:29:35Z",
+      "dataset_id": "datasets/synthetic_review_events.csv",
+      "is_synthetic": true,
+      "is_calibrated": true,
+      "status": "candidate",
+      "brier_score_val": 0.08678195081605782,
+      "log_loss_val": 0.3086138096926183,
+      "roc_auc_val": 0.9416376796317768,
+      "artifact_path": "ml/registry/artifacts/retention_logistic_regression_1.0.0.json"
+    },
+    {
+      "model_name": "retention_hist_gradient_boosting",
+      "model_version": "1.0.0",
+      "model_type": "NumpyHistGradientBoostingClassifier",
+      "created_at": "2026-10-05T10:29:35Z",
+      "dataset_id": "datasets/synthetic_review_events.csv",
+      "is_synthetic": true,
+      "is_calibrated": true,
+      "status": "active",
+      "brier_score_val": 0.07241311400686785,
+      "log_loss_val": 0.2571612463656419,
+      "roc_auc_val": 0.9507234461192509,
+      "artifact_path": "ml/registry/artifacts/retention_hist_gradient_boosting_1.0.0.json"
+    }
+  ]
+}

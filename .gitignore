@@ -218,3 +218,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# NeuroLearn local data and generated files
+data/
+artifacts/
