@@ -133,6 +133,98 @@ class TestModelRegistry(unittest.TestCase):
         # Exact numerical equivalence
         np.testing.assert_allclose(orig_preds, loaded_preds, rtol=1e-12, atol=1e-12)
 
+    def test_calibration_metadata_reflects_fitted_calibrator(self):
+        """Registry metadata correctly identifies calibrated and uncalibrated models."""
+        lr = ScipyLogisticRegression(C=1.0).fit(self.X, self.y)
+
+        uncalibrated_bundle = ModelArtifactBundle(
+            model_name="retention_calibration_check",
+            model_version="1.0.0",
+            model_type="ScipyLogisticRegression",
+            preprocessor=self.preprocessor,
+            model=lr,
+            calibrator=None,
+            training_dataset_id="test_ds",
+            training_timestamp="2026-11-14T10:00:00Z",
+            validation_metrics={"brier_score": 0.15, "log_loss": 0.50},
+        )
+
+        self.registry.register_model(uncalibrated_bundle)
+
+        calibrator = PlattCalibrator().fit(
+            lr.predict_proba(self.X)[:, 1], self.y
+        )
+
+        calibrated_bundle = ModelArtifactBundle(
+            model_name="retention_calibration_check",
+            model_version="1.1.0",
+            model_type="ScipyLogisticRegression",
+            preprocessor=self.preprocessor,
+            model=lr,
+            calibrator=calibrator,
+            training_dataset_id="test_ds",
+            training_timestamp="2026-11-14T10:30:00Z",
+            validation_metrics={"brier_score": 0.12, "log_loss": 0.42},
+        )
+
+        self.registry.register_model(calibrated_bundle)
+
+        uncalibrated_meta = self.registry.get_model_metadata(
+            "retention_calibration_check", "1.0.0"
+        )
+        calibrated_meta = self.registry.get_model_metadata(
+            "retention_calibration_check", "1.1.0"
+        )
+
+        self.assertFalse(uncalibrated_meta.is_calibrated)
+        self.assertTrue(calibrated_meta.is_calibrated)
+
+    def test_uncalibrated_inference_returns_raw_model_probabilities(self):
+        """Uncalibrated bundles return raw model probabilities unchanged."""
+        lr = ScipyLogisticRegression(C=1.0).fit(self.X, self.y)
+
+        bundle = ModelArtifactBundle(
+            model_name="retention_lr",
+            model_version="1.0.0",
+            model_type="ScipyLogisticRegression",
+            preprocessor=self.preprocessor,
+            model=lr,
+            calibrator=None,
+            training_dataset_id="test_ds",
+            training_timestamp="2026-11-14T10:00:00Z",
+            validation_metrics={"brier_score": 0.12},
+        )
+
+        raw_probs = lr.predict_proba(self.X)
+        bundle_probs = bundle.predict_proba(self.records)
+
+        np.testing.assert_allclose(
+            bundle_probs, raw_probs, rtol=1e-12, atol=1e-12
+        )
+
+    def test_uncalibrated_inference_returns_raw_model_probabilities(self):
+        """Uncalibrated bundles return raw model probabilities unchanged."""
+        lr = ScipyLogisticRegression(C=1.0).fit(self.X, self.y)
+
+        bundle = ModelArtifactBundle(
+            model_name="retention_lr",
+            model_version="1.0.0",
+            model_type="ScipyLogisticRegression",
+            preprocessor=self.preprocessor,
+            model=lr,
+            calibrator=None,
+            training_dataset_id="test_ds",
+            training_timestamp="2026-11-14T10:00:00Z",
+            validation_metrics={"brier_score": 0.12},
+        )
+
+        raw_probs = lr.predict_proba(self.X)
+        bundle_probs = bundle.predict_proba(self.records)
+
+        np.testing.assert_allclose(
+            bundle_probs, raw_probs, rtol=1e-12, atol=1e-12
+        )
+
     def test_active_model_selection_and_promotion(self):
         """Setting active model promotes specified version and archives prior active version."""
         lr1 = ScipyLogisticRegression(C=1.0).fit(self.X, self.y)
