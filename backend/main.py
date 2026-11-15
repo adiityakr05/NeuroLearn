@@ -8,6 +8,8 @@ from backend.study_planner import StudyPlannerService
 from backend.study_session_service import StudySessionService
 from backend.study_completion_service import StudyCompletionService
 from backend.study_analytics_service import StudyAnalyticsService
+from backend.study_analytics_service import StudyAnalyticsService
+from backend.study_insights_service import StudyInsightsService
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException
@@ -542,5 +544,43 @@ def get_topic_analytics(user_id: str):
 @app.get("/api/v1/study-plan/{user_id}/weekly-analytics")
 def get_weekly_analytics(user_id: str):
     return StudyAnalyticsService.get_weekly_analytics(
+        user_id
+    )
+
+# --------------------------------------------------
+# ADAPTIVE LEARNING INSIGHTS API
+# --------------------------------------------------
+
+
+@app.get("/api/v1/study-plan/{user_id}/performance-trend")
+def get_performance_trend(user_id: str):
+    return StudyInsightsService.get_performance_trend(
+        user_id
+    )
+
+@app.get("/api/v1/study-plan/{user_id}/weekly-analytics")
+def get_weekly_analytics(user_id: str):
+    return StudyInsightsService.get_weekly_analytics(
+        user_id
+    )
+
+
+@app.get("/api/v1/study-plan/{user_id}/consistency")
+def get_study_consistency(user_id: str):
+    return StudyInsightsService.get_study_consistency(
+        user_id
+    )
+
+
+@app.get("/api/v1/study-plan/{user_id}/weak-topics")
+def get_weak_topics(user_id: str):
+    return StudyInsightsService.get_weak_topics(
+        user_id
+    )
+
+
+@app.get("/api/v1/study-plan/{user_id}/insights")
+def get_personalized_insights(user_id: str):
+    return StudyInsightsService.get_personalized_insights(
         user_id
     )
