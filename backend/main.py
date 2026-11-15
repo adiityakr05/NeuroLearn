@@ -7,6 +7,7 @@ import logging
 from backend.study_planner import StudyPlannerService
 from backend.study_session_service import StudySessionService
 from backend.study_completion_service import StudyCompletionService
+from backend.study_analytics_service import StudyAnalyticsService
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException
@@ -517,4 +518,29 @@ def health_check():
         status="healthy",
         application="NeuroLearn API",
         timestamp=datetime.now(timezone.utc).isoformat(),
+    )
+
+
+# --------------------------------------------------
+# STUDY ANALYTICS API
+# --------------------------------------------------
+
+
+@app.get("/api/v1/study-plan/{user_id}/analytics")
+def get_study_analytics(user_id: str):
+    return StudyAnalyticsService.get_study_analytics(
+        user_id
+    )
+
+
+@app.get("/api/v1/study-plan/{user_id}/topic-analytics")
+def get_topic_analytics(user_id: str):
+    return StudyAnalyticsService.get_topic_analytics(
+        user_id
+    )
+
+@app.get("/api/v1/study-plan/{user_id}/weekly-analytics")
+def get_weekly_analytics(user_id: str):
+    return StudyAnalyticsService.get_weekly_analytics(
+        user_id
     )
