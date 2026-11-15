@@ -10,6 +10,8 @@ from backend.study_completion_service import StudyCompletionService
 from backend.study_analytics_service import StudyAnalyticsService
 from backend.study_analytics_service import StudyAnalyticsService
 from backend.study_insights_service import StudyInsightsService
+from backend.study_insights_service import StudyInsightsService
+from backend.learning_behavior_service import LearningBehaviorService
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException
@@ -582,5 +584,31 @@ def get_weak_topics(user_id: str):
 @app.get("/api/v1/study-plan/{user_id}/insights")
 def get_personalized_insights(user_id: str):
     return StudyInsightsService.get_personalized_insights(
+        user_id
+    )
+
+
+# --------------------------------------------------
+# LEARNING BEHAVIOR API
+# --------------------------------------------------
+
+
+@app.get("/api/v1/study-plan/{user_id}/activity-summary")
+def get_activity_summary(user_id: str):
+    return LearningBehaviorService.get_activity_summary(
+        user_id
+    )
+
+
+@app.get("/api/v1/study-plan/{user_id}/study-timing")
+def get_study_timing_patterns(user_id: str):
+    return LearningBehaviorService.get_study_timing_patterns(
+        user_id
+    )
+
+
+@app.get("/api/v1/study-plan/{user_id}/learning-behavior")
+def get_learning_behavior(user_id: str):
+    return LearningBehaviorService.get_learning_behavior(
         user_id
     )
