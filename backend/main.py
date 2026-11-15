@@ -5,13 +5,6 @@ Phase 2.5 — Retention Prediction and Study Event API
 
 import logging
 from backend.study_planner import StudyPlannerService
-from backend.study_session_service import StudySessionService
-from backend.study_completion_service import StudyCompletionService
-from backend.study_analytics_service import StudyAnalyticsService
-from backend.study_analytics_service import StudyAnalyticsService
-from backend.study_insights_service import StudyInsightsService
-from backend.study_insights_service import StudyInsightsService
-from backend.learning_behavior_service import LearningBehaviorService
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException
@@ -21,6 +14,10 @@ from backend.database import initialize_database
 from backend.review_service import ReviewEventService
 from backend.schedule_repository import ScheduleRepository
 from backend.scheduling_service import PersonalizedSchedulingService
+
+from backend.retention_recommendation_service import (
+    RetentionRecommendationService,
+)
 
 from ml.data.schemas import ReviewEventRecord
 from ml.service.contracts import PredictionRequestItem, BatchPredictionRequest
@@ -288,80 +285,6 @@ def create_review_event(request: ReviewEventRequest):
             detail="Review event storage failed.",
         )
 
-# --------------------------------------------------
-# STUDY PRIORITY API
-# --------------------------------------------------
-
-@app.get("/api/v1/study-plan/{user_id}/priorities")
-def get_study_priorities(user_id: str):
-    priorities = StudyPlannerService.prioritize_due_reviews(
-        user_id
-    )
-
-    return {
-        "user_id": user_id,
-        "priorities": priorities,
-        "count": len(priorities),
-    }
-
-# --------------------------------------------------
-# STUDY SESSION API
-# --------------------------------------------------
-
-@app.get("/api/v1/study-plan/{user_id}/session")
-def generate_study_session(
-    user_id: str,
-    total_minutes: int = 30,
-):
-    try:
-        return StudySessionService.generate_session(
-            user_id=user_id,
-            total_minutes=total_minutes,
-        )
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=400,
-            detail=str(exc),
-        )
-
-
-# --------------------------------------------------
-# STUDY COMPLETION API
-# --------------------------------------------------
-
-from pydantic import BaseModel, Field
-
-
-class StudyCompletionRequest(BaseModel):
-    user_id: str
-    planned_minutes: int = Field(gt=0)
-    actual_minutes: int = Field(ge=0)
-    topics_planned: list[str]
-    topics_completed: list[str]
-
-
-@app.post("/api/v1/study-plan/completions", status_code=201)
-def record_study_completion(request: StudyCompletionRequest):
-    try:
-        return StudyCompletionService.record_completion(
-            **request.model_dump()
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-
-
-@app.get("/api/v1/study-plan/{user_id}/completions")
-def get_study_completions(user_id: str):
-    history = StudyCompletionService.get_completion_history(
-        user_id
-    )
-
-    return {
-        "user_id": user_id,
-        "history": history,
-        "count": len(history),
-    }
-
 
 # --------------------------------------------------
 # REVIEW HISTORY
@@ -524,91 +447,14 @@ def health_check():
         timestamp=datetime.now(timezone.utc).isoformat(),
     )
 
-
 # --------------------------------------------------
-# STUDY ANALYTICS API
-# --------------------------------------------------
-
-
-@app.get("/api/v1/study-plan/{user_id}/analytics")
-def get_study_analytics(user_id: str):
-    return StudyAnalyticsService.get_study_analytics(
-        user_id
-    )
-
-
-@app.get("/api/v1/study-plan/{user_id}/topic-analytics")
-def get_topic_analytics(user_id: str):
-    return StudyAnalyticsService.get_topic_analytics(
-        user_id
-    )
-
-@app.get("/api/v1/study-plan/{user_id}/weekly-analytics")
-def get_weekly_analytics(user_id: str):
-    return StudyAnalyticsService.get_weekly_analytics(
-        user_id
-    )
-
-# --------------------------------------------------
-# ADAPTIVE LEARNING INSIGHTS API
+# RETENTION-AWARE RECOMMENDATIONS
 # --------------------------------------------------
 
-
-@app.get("/api/v1/study-plan/{user_id}/performance-trend")
-def get_performance_trend(user_id: str):
-    return StudyInsightsService.get_performance_trend(
-        user_id
-    )
-
-@app.get("/api/v1/study-plan/{user_id}/weekly-analytics")
-def get_weekly_analytics(user_id: str):
-    return StudyInsightsService.get_weekly_analytics(
-        user_id
-    )
-
-
-@app.get("/api/v1/study-plan/{user_id}/consistency")
-def get_study_consistency(user_id: str):
-    return StudyInsightsService.get_study_consistency(
-        user_id
-    )
-
-
-@app.get("/api/v1/study-plan/{user_id}/weak-topics")
-def get_weak_topics(user_id: str):
-    return StudyInsightsService.get_weak_topics(
-        user_id
-    )
-
-
-@app.get("/api/v1/study-plan/{user_id}/insights")
-def get_personalized_insights(user_id: str):
-    return StudyInsightsService.get_personalized_insights(
-        user_id
-    )
-
-
-# --------------------------------------------------
-# LEARNING BEHAVIOR API
-# --------------------------------------------------
-
-
-@app.get("/api/v1/study-plan/{user_id}/activity-summary")
-def get_activity_summary(user_id: str):
-    return LearningBehaviorService.get_activity_summary(
-        user_id
-    )
-
-
-@app.get("/api/v1/study-plan/{user_id}/study-timing")
-def get_study_timing_patterns(user_id: str):
-    return LearningBehaviorService.get_study_timing_patterns(
-        user_id
-    )
-
-
-@app.get("/api/v1/study-plan/{user_id}/learning-behavior")
-def get_learning_behavior(user_id: str):
-    return LearningBehaviorService.get_learning_behavior(
+@app.get(
+    "/api/v1/study-plan/{user_id}/recommendations",
+)
+def get_retention_recommendations(user_id: str):
+    return RetentionRecommendationService.get_recommendations(
         user_id
     )
