@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { X, BookOpen, Palette } from 'lucide-react';
 
 export default function SubjectModal({ isOpen, onClose, onSave, editingSubject }) {
-  if (!isOpen) return null;
-
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [color, setColor] = useState('#6366F1');
@@ -19,18 +17,22 @@ export default function SubjectModal({ isOpen, onClose, onSave, editingSubject }
   ];
 
   useEffect(() => {
-    if (editingSubject) {
-      setName(editingSubject.name || '');
-      setCode(editingSubject.code || '');
-      setColor(editingSubject.color || '#6366F1');
-      setDescription(editingSubject.description || '');
-    } else {
-      setName('');
-      setCode('');
-      setColor('#6366F1');
-      setDescription('');
+    if (isOpen) {
+      if (editingSubject) {
+        setName(editingSubject.name || '');
+        setCode(editingSubject.code || '');
+        setColor(editingSubject.color || '#6366F1');
+        setDescription(editingSubject.description || '');
+      } else {
+        setName('');
+        setCode('');
+        setColor('#6366F1');
+        setDescription('');
+      }
     }
   }, [editingSubject, isOpen]);
+
+  if (!isOpen) return null;
 
   const handleSubmit = (e) => {
     e.preventDefault();

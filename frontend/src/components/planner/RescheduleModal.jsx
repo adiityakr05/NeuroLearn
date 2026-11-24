@@ -2,12 +2,18 @@ import React, { useState } from 'react';
 import { X, Calendar, Clock, AlertTriangle, Sparkles, Check } from 'lucide-react';
 
 export default function RescheduleModal({ session, isOpen, onClose, onConfirm }) {
-  if (!isOpen || !session) return null;
-
-  const [selectedDate, setSelectedDate] = useState(session.date || '2026-11-14');
-  const [selectedSlot, setSelectedSlot] = useState(session.timeSlot || '04:30 PM - 05:15 PM');
+  const [selectedDate, setSelectedDate] = useState('2026-11-14');
+  const [selectedSlot, setSelectedSlot] = useState('04:30 PM - 05:15 PM');
   const [reason, setReason] = useState('Conflict with college laboratory class');
   const [submitting, setSubmitting] = useState(false);
+
+  React.useEffect(() => {
+    if (isOpen && session) {
+      setSelectedDate(session.date || '2026-11-14');
+      setSelectedSlot(session.timeSlot || '04:30 PM - 05:15 PM');
+      setReason('Conflict with college laboratory class');
+    }
+  }, [session, isOpen]);
 
   const slotOptions = [
     '09:00 AM - 10:30 AM (Morning Focus)',
@@ -24,6 +30,8 @@ export default function RescheduleModal({ session, isOpen, onClose, onConfirm })
     setSubmitting(false);
     onClose();
   };
+
+  if (!isOpen || !session) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">

@@ -56,13 +56,16 @@ export const authService = {
 
     // Real API integration
     const res = await api.post('/auth/register', {
-      fullName,
+      full_name: fullName,
       email,
       password,
       program,
     });
-    const token = res.accessToken || res.access_token || res.token;
-    const user = normalizers.user(res.user);
+
+    // Auto-login to obtain JWT token after registration
+    const loginRes = await api.post('/auth/login', { email, password });
+    const token = loginRes.accessToken || loginRes.access_token || loginRes.token;
+    const user = normalizers.user(loginRes.user || res);
 
     sessionStorage.setItem(TOKEN_KEY, token);
     sessionStorage.setItem(USER_KEY, JSON.stringify(user));
@@ -74,8 +77,12 @@ export const authService = {
     if (API_CONFIG.useMock.user) {
       return authService.getCurrentUser();
     }
-    const res = await api.get('/user/profile');
-    return normalizers.user(res);
+    const res = await api.get('/auth/me');
+    const user = normalizers.user(res);
+    if (user) {
+      sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+    }
+    return user;
   },
 
   // Logout student: strictly clears both sessionStorage and localStorage

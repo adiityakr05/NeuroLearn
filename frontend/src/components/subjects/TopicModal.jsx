@@ -8,8 +8,6 @@ export default function TopicModal({
   editingTopic,
   subjectName = '',
 }) {
-  if (!isOpen) return null;
-
   const [name, setName] = useState('');
   const [difficulty, setDifficulty] = useState('Medium');
   const [mastery, setMastery] = useState(50);
@@ -17,20 +15,24 @@ export default function TopicModal({
   const [completed, setCompleted] = useState(false);
 
   useEffect(() => {
-    if (editingTopic) {
-      setName(editingTopic.name || '');
-      setDifficulty(editingTopic.difficulty || 'Medium');
-      setMastery(editingTopic.mastery ?? 50);
-      setNextRevision(editingTopic.nextRevision || '2026-11-20');
-      setCompleted(Boolean(editingTopic.completed));
-    } else {
-      setName('');
-      setDifficulty('Medium');
-      setMastery(50);
-      setNextRevision('2026-11-20');
-      setCompleted(false);
+    if (isOpen) {
+      if (editingTopic) {
+        setName(editingTopic.name || '');
+        setDifficulty(editingTopic.difficulty || 'Medium');
+        setMastery(editingTopic.mastery ?? 50);
+        setNextRevision(editingTopic.nextRevision || '2026-11-20');
+        setCompleted(Boolean(editingTopic.completed));
+      } else {
+        setName('');
+        setDifficulty('Medium');
+        setMastery(50);
+        setNextRevision('2026-11-20');
+        setCompleted(false);
+      }
     }
   }, [editingTopic, isOpen]);
+
+  if (!isOpen) return null;
 
   const handleSubmit = (e) => {
     e.preventDefault();

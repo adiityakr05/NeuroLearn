@@ -31,6 +31,14 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response.data,
   (error) => {
+    // If 401 Unauthorized, automatically clear invalid / expired tokens
+    if (error.response?.status === 401) {
+      sessionStorage.removeItem('neurolearn_token');
+      sessionStorage.removeItem('neurolearn_user');
+      localStorage.removeItem('neurolearn_token');
+      localStorage.removeItem('neurolearn_user');
+    }
+
     // Check if error response comes with a FastAPI Pydantic detail string/array
     let message = 'An unexpected network error occurred';
     if (error.response?.data?.detail) {
