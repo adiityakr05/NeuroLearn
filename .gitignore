@@ -222,3 +222,8 @@ __marimo__/
 # NeuroLearn local data and generated files
 data/
 artifacts/
+
+# Local development tools and temporary files
+node_modules/
+cloudflared.exe
+*.bak
