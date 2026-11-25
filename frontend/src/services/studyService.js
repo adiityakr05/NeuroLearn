@@ -86,16 +86,31 @@ export const studyService = {
     return Array.isArray(res) ? res.map(normalizers.studySession) : [];
   },
 
-  async toggleTaskStatus(taskId, newStatus) {
+  async toggleTaskStatus(taskId, newStatus, actualDurationMinutes = null) {
     if (API_CONFIG.useMock.planner) {
       await new Promise((resolve) => setTimeout(resolve, 150));
       activeSessions = activeSessions.map((t) =>
-        t.id === taskId ? { ...t, status: newStatus } : t
+        t.id === taskId ? { ...t, status: newStatus, actualDurationMinutes: actualDurationMinutes ?? t.actualDurationMinutes } : t
       );
       return { success: true, taskId, newStatus };
     }
 
-    return api.post('/study-session/complete', { taskId, status: newStatus });
+    return api.post('/study-plan/complete', { taskId, status: newStatus, actual_duration_minutes: actualDurationMinutes });
+  },
+
+  async startStudySession(sessionId) {
+    const res = await api.post(`/study-sessions/${sessionId}/start`);
+    return normalizers.studySession(res);
+  },
+
+  async completeStudySession(sessionId, actualDurationMinutes = null) {
+    const res = await api.post(`/study-sessions/${sessionId}/complete`, { actual_duration_minutes: actualDurationMinutes });
+    return normalizers.studySession(res);
+  },
+
+  async abandonStudySession(sessionId, actualDurationMinutes = null, reason = null) {
+    const res = await api.post(`/study-sessions/${sessionId}/abandon`, { actual_duration_minutes: actualDurationMinutes, reason });
+    return normalizers.studySession(res);
   },
 
   async rescheduleTask(taskId, newDate, newSlot, reason) {
@@ -275,7 +290,9 @@ export const studyService = {
       return { ...mockAnalyticsData };
     }
 
-    return api.get(`/analytics?timeRange=${timeRange}`);
+    const res = await api.get(`/analytics/history?timeRange=${timeRange}`);
+    // If backend returns a packaged frontend_bundle, use it; otherwise fall back to raw res
+    return res.frontend_bundle || res;
   },
 
   // ==========================================
@@ -287,7 +304,7 @@ export const studyService = {
       return JSON.parse(JSON.stringify(mockRecommendationsHubData));
     }
 
-    return api.get('/recommendations');
+    return api.get('/recommendations/hub');
   },
 
   async acceptRecommendation(recId) {
@@ -327,5 +344,16 @@ export const studyService = {
     }
     const res = await api.get('/user/profile');
     return normalizers.user(res);
+  },
+
+  // ==========================================
+  // 7. QUIZ SUBMISSION MODULE (WITH IDEMPOTENCY)
+  // ==========================================
+  async submitQuizAttempt(quizData, idempotencyKey = null) {
+    // Generate a client UUID for every new quiz submission if not explicitly provided
+    const key = idempotencyKey || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `quiz_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`);
+    const headers = { 'Idempotency-Key': key };
+    const res = await api.post('/quiz-attempts', quizData, { headers });
+    return res;
   },
 };

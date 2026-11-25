@@ -16,8 +16,10 @@ import TodayScheduleWidget from '../components/dashboard/TodayScheduleWidget';
 import WeeklyActivityChart from '../components/dashboard/WeeklyActivityChart';
 import UpcomingExamsWidget from '../components/dashboard/UpcomingExamsWidget';
 import { studyService } from '../services/studyService';
+import { useAuth } from '../context/AuthContext';
 
 export default function Dashboard() {
+  const { user } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -96,7 +98,18 @@ export default function Dashboard() {
     );
   }
 
-  const { stats, upcomingExams, weeklyActivity, aiRecommendations, todaySchedule } = data;
+  const { stats, upcomingExams = [], weeklyActivity, aiRecommendations, todaySchedule } = data;
+
+  // Resolve authenticated student's display name safely
+  const studentName = user?.name || user?.full_name || 'Student';
+
+  // Find nearest upcoming exam if any valid exams exist
+  const nearestExam =
+    upcomingExams && upcomingExams.length > 0
+      ? [...upcomingExams]
+          .filter((ex) => typeof ex.daysLeft === 'number' && ex.daysLeft >= 0)
+          .sort((a, b) => a.daysLeft - b.daysLeft)[0]
+      : null;
 
   return (
     <div className="space-y-8">
@@ -104,7 +117,7 @@ export default function Dashboard() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-            Welcome back, Aditya 👋
+            Welcome back, {studentName} 👋
           </h1>
           <p className="text-sm text-slate-500 mt-1">
             Your retention score is steady at <strong className="text-slate-800">82%</strong>. The Critic element adjusted 2 tasks today for maximum exam impact.
@@ -120,8 +133,8 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* AI Agent Highlight Banner */}
-      {bannerVisible && (
+      {/* AI Agent Highlight Banner - only shown when bannerVisible AND a valid nearest exam exists */}
+      {bannerVisible && nearestExam && (
         <div className="relative overflow-hidden p-5 rounded-2xl bg-gradient-to-r from-indigo-900 via-indigo-800 to-slate-900 text-white shadow-md">
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-start gap-3.5">
@@ -133,13 +146,15 @@ export default function Dashboard() {
                   <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/30 text-indigo-200 border border-indigo-400/20">
                     Adaptive Planner Note
                   </span>
-                  <span className="text-xs text-indigo-200">Exam Countdown: 11 Days</span>
+                  <span className="text-xs text-indigo-200">
+                    Exam Countdown: {nearestExam.daysLeft === 0 ? 'Today' : `${nearestExam.daysLeft} Day${nearestExam.daysLeft === 1 ? '' : 's'}`}
+                  </span>
                 </div>
                 <p className="text-sm sm:text-base font-semibold mt-1 text-white">
-                  Machine Learning exam is approaching. Focus has been shifted toward low-retention topics.
+                  {nearestExam.subject} exam is approaching. Focus has been shifted toward low-retention topics.
                 </p>
                 <p className="text-xs text-indigo-200/90 mt-0.5">
-                  Algorithm adjusted today's schedule to prioritize Support Vector Machines before memory decay accelerates.
+                  Algorithm adjusted today's schedule to prioritize review sessions before memory decay accelerates.
                 </p>
               </div>
             </div>

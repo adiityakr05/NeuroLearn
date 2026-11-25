@@ -61,12 +61,15 @@ export const normalizers = {
       subject: data.subject || data.subject_name,
       subjectCode: data.subjectCode || data.subject_code,
       durationMinutes: Number(data.durationMinutes ?? data.duration_minutes ?? 45),
+      actualDurationMinutes: data.actualDurationMinutes ?? data.actual_duration_minutes ?? null,
       status: data.status || 'pending',
       priority: data.priority || 'medium',
       retentionScore: Number(data.retentionScore ?? data.retention_score ?? 70),
       repetitionCycle: data.repetitionCycle || data.repetition_cycle || 'Cycle 1',
       isOverdue: Boolean(data.isOverdue ?? data.is_overdue),
       aiReason: data.aiReason || data.ai_reason || 'Scheduled based on active learning agenda.',
+      startedAt: data.startedAt || data.started_at || null,
+      completedAt: data.completedAt || data.completed_at || null,
     };
   },
 };

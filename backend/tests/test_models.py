@@ -16,22 +16,6 @@ from app.models import (
 )
 
 
-@pytest.fixture(scope="function")
-def db_session() -> Session:
-    """
-    Creates an isolated in-memory SQLite database session for testing models.
-    """
-    test_engine = create_engine("sqlite:///:memory:", echo=False)
-    Base.metadata.create_all(bind=test_engine)
-    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
-    session = TestingSessionLocal()
-    try:
-        yield session
-    finally:
-        session.close()
-        Base.metadata.drop_all(bind=test_engine)
-
-
 def test_create_user(db_session: Session):
     user = User(
         email="test.student@college.edu",

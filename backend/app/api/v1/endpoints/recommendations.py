@@ -42,6 +42,25 @@ def list_recommendations(
     )
 
 
+@router.post(
+    "/generate",
+    response_model=List[RecommendationResponse],
+    summary="Explicitly generate and persist fresh recommendations via AI Orchestrator",
+)
+def generate_recommendations(
+    max_count: int = Query(5, ge=1, le=10, description="Max recommendations to generate"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Explicitly invokes AI Orchestrator to generate and persist fresh recommendations
+    for the authenticated student without overwriting or duplicating pending tasks.
+    """
+    return recommendation_service.generate_fresh_recommendations(
+        db, user_id=current_user.id, max_recommendations=max_count
+    )
+
+
 @router.get(
     "/hub",
     response_model=RecommendationsHubResponse,

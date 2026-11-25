@@ -9,6 +9,9 @@ from app.schemas.entities import (
     StudySessionCreate,
     StudySessionUpdate,
     StudySessionResponse,
+    StudySessionStartRequest,
+    StudySessionCompleteRequest,
+    StudySessionAbandonRequest,
 )
 from app.services.activity_service import activity_service
 
@@ -97,6 +100,70 @@ def update_study_session(
     Updates mutable study session fields (status, duration, notes/title, date, slot).
     """
     return activity_service.update_study_session(db, session_id, current_user.id, session_in)
+
+
+@router.post(
+    "/{session_id}/start",
+    response_model=StudySessionResponse,
+    summary="Start a pending study session",
+)
+def start_study_session(
+    session_id: str,
+    start_req: Optional[StudySessionStartRequest] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Transitions a pending study session to in_progress, recording started_at timestamp.
+    """
+    started_at = start_req.started_at if start_req else None
+    return activity_service.start_study_session(db, session_id, current_user.id, started_at=started_at)
+
+
+@router.post(
+    "/{session_id}/complete",
+    response_model=StudySessionResponse,
+    summary="Complete an in-progress study session",
+)
+def complete_study_session(
+    session_id: str,
+    complete_req: Optional[StudySessionCompleteRequest] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Transitions an in-progress or pending study session to completed.
+    Calculates actual duration without modifying planned duration.
+    Prevents duplicate completion.
+    """
+    actual_dur = complete_req.actual_duration_minutes if complete_req else None
+    completed_at = complete_req.completed_at if complete_req else None
+    return activity_service.complete_study_session(
+        db, session_id, current_user.id, actual_duration_minutes=actual_dur, completed_at=completed_at
+    )
+
+
+@router.post(
+    "/{session_id}/abandon",
+    response_model=StudySessionResponse,
+    summary="Abandon an in-progress study session",
+)
+def abandon_study_session(
+    session_id: str,
+    abandon_req: Optional[StudySessionAbandonRequest] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Transitions an in-progress or pending study session to abandoned.
+    Records actual study duration up to abandonment without marking as completed.
+    """
+    actual_dur = abandon_req.actual_duration_minutes if abandon_req else None
+    abandoned_at = abandon_req.abandoned_at if abandon_req else None
+    reason = abandon_req.reason if abandon_req else None
+    return activity_service.abandon_study_session(
+        db, session_id, current_user.id, actual_duration_minutes=actual_dur, abandoned_at=abandoned_at, reason=reason
+    )
 
 
 @router.delete(

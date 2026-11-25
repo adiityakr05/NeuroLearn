@@ -17,42 +17,6 @@ from app.core.security import (
 from app.models.entities import User
 
 
-# Setup isolated in-memory test database with StaticPool and check_same_thread=False
-# This ensures all threads in TestClient share the same SQLite in-memory instance cleanly.
-test_engine = create_engine(
-    "sqlite:///:memory:",
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
-
-
-@pytest.fixture(scope="function")
-def db_session() -> Session:
-    Base.metadata.create_all(bind=test_engine)
-    session = TestingSessionLocal()
-    try:
-        yield session
-    finally:
-        session.rollback()
-        session.close()
-        Base.metadata.drop_all(bind=test_engine)
-
-
-@pytest.fixture(scope="function")
-def client(db_session: Session) -> TestClient:
-    def override_get_db():
-        try:
-            yield db_session
-        finally:
-            pass
-
-    app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as c:
-        yield c
-    app.dependency_overrides.clear()
-
-
 # ==============================================================================
 # 1. SECURITY & PASSWORD TESTS
 # ==============================================================================

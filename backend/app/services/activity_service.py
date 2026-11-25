@@ -23,10 +23,55 @@ from app.schemas.entities import (
 )
 
 
+VALID_SESSION_STATUSES = {"pending", "in_progress", "completed", "abandoned"}
+
+
+def _ensure_utc(dt: Optional[datetime]) -> Optional[datetime]:
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def _calc_minutes(dt_end: Optional[datetime], dt_start: Optional[datetime]) -> int:
+    t_end = _ensure_utc(dt_end)
+    t_start = _ensure_utc(dt_start)
+    if t_end and t_start:
+        return max(0, int((t_end - t_start).total_seconds() / 60))
+    return 0
+
+
 class ActivityService:
     # ==========================================================================
     # 1. STUDY SESSIONS
     # ==========================================================================
+    @staticmethod
+    def _format_study_session(session: StudySession) -> Dict[str, Any]:
+        return {
+            "id": session.id,
+            "user_id": session.user_id,
+            "subject_id": session.subject_id,
+            "topic_id": session.topic_id,
+            "title": session.ai_reason or "Study Session",
+            "date": session.date,
+            "session_date": session.date,
+            "time_slot": session.time_slot,
+            "duration_minutes": session.duration_minutes,
+            "actual_duration_minutes": session.actual_duration_minutes,
+            "status": session.status,
+            "priority": session.priority,
+            "retention_score": session.retention_score,
+            "repetition_cycle": session.repetition_cycle,
+            "is_overdue": session.is_overdue,
+            "ai_reason": session.ai_reason,
+            "notes": session.ai_reason,
+            "started_at": session.started_at,
+            "completed_at": session.completed_at,
+            "created_at": session.created_at,
+            "updated_at": session.updated_at,
+        }
+
     @staticmethod
     def get_study_sessions(
         db: Session,
@@ -54,30 +99,7 @@ class ActivityService:
         query = query.order_by(StudySession.date.desc(), StudySession.created_at.desc()).offset(skip).limit(limit)
         sessions = list(db.scalars(query).all())
 
-        return [
-            {
-                "id": s.id,
-                "user_id": s.user_id,
-                "subject_id": s.subject_id,
-                "topic_id": s.topic_id,
-                "title": s.ai_reason or "Study Session",
-                "date": s.date,
-                "session_date": s.date,
-                "time_slot": s.time_slot,
-                "duration_minutes": s.duration_minutes,
-                "status": s.status,
-                "priority": s.priority,
-                "retention_score": s.retention_score,
-                "repetition_cycle": s.repetition_cycle,
-                "is_overdue": s.is_overdue,
-                "ai_reason": s.ai_reason,
-                "notes": s.ai_reason,
-                "completed_at": s.completed_at,
-                "created_at": s.created_at,
-                "updated_at": s.updated_at,
-            }
-            for s in sessions
-        ]
+        return [ActivityService._format_study_session(s) for s in sessions]
 
     @staticmethod
     def get_study_session_by_id(db: Session, session_id: str, user_id: str) -> Dict[str, Any]:
@@ -89,27 +111,7 @@ class ActivityService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Study session not found",
             )
-        return {
-            "id": session.id,
-            "user_id": session.user_id,
-            "subject_id": session.subject_id,
-            "topic_id": session.topic_id,
-            "title": session.ai_reason or "Study Session",
-            "date": session.date,
-            "session_date": session.date,
-            "time_slot": session.time_slot,
-            "duration_minutes": session.duration_minutes,
-            "status": session.status,
-            "priority": session.priority,
-            "retention_score": session.retention_score,
-            "repetition_cycle": session.repetition_cycle,
-            "is_overdue": session.is_overdue,
-            "ai_reason": session.ai_reason,
-            "notes": session.ai_reason,
-            "completed_at": session.completed_at,
-            "created_at": session.created_at,
-            "updated_at": session.updated_at,
-        }
+        return ActivityService._format_study_session(session)
 
     @staticmethod
     def create_study_session(
@@ -140,8 +142,42 @@ class ActivityService:
                     detail="Topic not found or does not belong to user",
                 )
 
+        initial_status = session_in.status or "pending"
+        if initial_status not in VALID_SESSION_STATUSES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid session status: '{initial_status}'. Must be one of {sorted(list(VALID_SESSION_STATUSES))}",
+            )
+
+        if session_in.duration_minutes < 1 or session_in.duration_minutes > 1440:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="duration_minutes must be between 1 and 1440",
+            )
+
+        actual_dur = session_in.actual_duration_minutes
+        if actual_dur is not None and (actual_dur < 0 or actual_dur > 1440):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="actual_duration_minutes must be between 0 and 1440",
+            )
+
         target_date = session_in.session_date or session_in.date
         reason_text = session_in.notes or session_in.title or session_in.ai_reason
+
+        now_utc = datetime.now(timezone.utc)
+        started_val = session_in.started_at
+        completed_val = session_in.completed_at
+
+        if initial_status == "in_progress" and not started_val:
+            started_val = now_utc
+        elif initial_status == "completed":
+            if not completed_val:
+                completed_val = now_utc
+            if not started_val:
+                started_val = completed_val
+            if actual_dur is None and started_val and completed_val:
+                actual_dur = _calc_minutes(completed_val, started_val)
 
         new_session = StudySession(
             user_id=user_id,
@@ -150,21 +186,26 @@ class ActivityService:
             date=target_date,
             time_slot=session_in.time_slot,
             duration_minutes=session_in.duration_minutes,
-            status=session_in.status or "pending",
+            actual_duration_minutes=actual_dur,
+            status=initial_status,
             priority=session_in.priority or "medium",
             retention_score=session_in.retention_score,
             repetition_cycle=session_in.repetition_cycle,
             is_overdue=session_in.is_overdue,
             ai_reason=reason_text,
+            started_at=started_val,
+            completed_at=completed_val,
         )
-        if new_session.status == "completed":
-            new_session.completed_at = datetime.now(timezone.utc)
 
         db.add(new_session)
-        db.commit()
-        db.refresh(new_session)
+        try:
+            db.commit()
+            db.refresh(new_session)
+        except Exception:
+            db.rollback()
+            raise
 
-        return ActivityService.get_study_session_by_id(db, new_session.id, user_id)
+        return ActivityService._format_study_session(new_session)
 
     @staticmethod
     def update_study_session(
@@ -183,6 +224,104 @@ class ActivityService:
             )
 
         update_dict = session_in.model_dump(exclude_unset=True)
+
+        if "actual_duration_minutes" in update_dict and update_dict["actual_duration_minutes"] is not None:
+            act_dur = update_dict["actual_duration_minutes"]
+            if act_dur < 0 or act_dur > 1440:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="actual_duration_minutes must be between 0 and 1440",
+                )
+
+        if "duration_minutes" in update_dict and update_dict["duration_minutes"] is not None:
+            if update_dict["duration_minutes"] < 1 or update_dict["duration_minutes"] > 1440:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="duration_minutes must be between 1 and 1440",
+                )
+
+        # Status transition handling
+        if "status" in update_dict and update_dict["status"]:
+            target_status = update_dict["status"]
+            if target_status not in VALID_SESSION_STATUSES:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid session status: '{target_status}'. Must be one of {sorted(list(VALID_SESSION_STATUSES))}",
+                )
+
+            current_status = session.status
+            now_utc = datetime.now(timezone.utc)
+
+            # Prevent duplicate completion
+            if current_status == "completed" and target_status == "completed":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Study session is already completed",
+                )
+
+            # Valid transitions:
+            # pending -> in_progress, completed, abandoned (or pending if unchanged)
+            # in_progress -> completed, abandoned
+            # completed -> no transitions allowed (cannot transition completed session)
+            # abandoned -> no transitions allowed
+            if current_status == "completed" and target_status != "completed":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Cannot modify status of an already completed study session",
+                )
+            if current_status == "abandoned":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Cannot transition an abandoned study session",
+                )
+
+            # Transition to in_progress: valid from pending
+            if target_status == "in_progress":
+                if current_status != "pending":
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Cannot start session from '{current_status}' status",
+                    )
+                session.status = "in_progress"
+                if not session.started_at:
+                    session.started_at = update_dict.get("started_at") or now_utc
+
+            # Transition to completed: valid from in_progress (or direct from pending for backward compatibility)
+            elif target_status == "completed":
+                if current_status not in ("in_progress", "pending"):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Cannot complete session from '{current_status}' status",
+                    )
+                session.status = "completed"
+                completion_dt = update_dict.get("completed_at") or now_utc
+                session.completed_at = completion_dt
+                if not session.started_at:
+                    session.started_at = completion_dt
+
+                # Calculate or assign actual duration
+                if "actual_duration_minutes" in update_dict and update_dict["actual_duration_minutes"] is not None:
+                    session.actual_duration_minutes = update_dict["actual_duration_minutes"]
+                elif session.actual_duration_minutes is None:
+                    if session.started_at and session.completed_at:
+                        session.actual_duration_minutes = _calc_minutes(session.completed_at, session.started_at)
+
+            # Transition to abandoned: valid from in_progress (or pending)
+            elif target_status == "abandoned":
+                if current_status not in ("in_progress", "pending"):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Cannot abandon session from '{current_status}' status",
+                    )
+                session.status = "abandoned"
+                if not session.started_at:
+                    session.started_at = update_dict.get("started_at") or now_utc
+                # Set actual duration if provided or calculated up to abandonment time
+                if "actual_duration_minutes" in update_dict and update_dict["actual_duration_minutes"] is not None:
+                    session.actual_duration_minutes = update_dict["actual_duration_minutes"]
+                elif session.actual_duration_minutes is None and session.started_at:
+                    session.actual_duration_minutes = _calc_minutes(now_utc, session.started_at)
+
         if "session_date" in update_dict and update_dict["session_date"]:
             session.date = update_dict["session_date"]
         elif "date" in update_dict and update_dict["date"]:
@@ -193,18 +332,181 @@ class ActivityService:
         elif "title" in update_dict and update_dict["title"]:
             session.ai_reason = update_dict["title"]
 
-        if "status" in update_dict and update_dict["status"]:
-            session.status = update_dict["status"]
-            if session.status == "completed" and not session.completed_at:
-                session.completed_at = datetime.now(timezone.utc)
-
         for field in ["time_slot", "duration_minutes", "priority"]:
             if field in update_dict and update_dict[field] is not None:
                 setattr(session, field, update_dict[field])
 
-        db.commit()
-        db.refresh(session)
-        return ActivityService.get_study_session_by_id(db, session.id, user_id)
+        if "actual_duration_minutes" in update_dict and update_dict["actual_duration_minutes"] is not None:
+            session.actual_duration_minutes = update_dict["actual_duration_minutes"]
+
+        try:
+            db.commit()
+            db.refresh(session)
+        except Exception:
+            db.rollback()
+            raise
+        return ActivityService._format_study_session(session)
+
+    @staticmethod
+    def start_study_session(
+        db: Session,
+        session_id: str,
+        user_id: str,
+        started_at: Optional[datetime] = None,
+    ) -> Dict[str, Any]:
+        """
+        Starts a pending study session (pending -> in_progress).
+        """
+        session = db.scalar(
+            select(StudySession).where(StudySession.id == session_id, StudySession.user_id == user_id)
+        )
+        if not session:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Study session not found",
+            )
+        if session.status != "pending":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot start session with status '{session.status}'. Only 'pending' sessions can be started.",
+            )
+
+        now_utc = started_at or datetime.now(timezone.utc)
+        session.status = "in_progress"
+        session.started_at = now_utc
+
+        try:
+            db.commit()
+            db.refresh(session)
+        except Exception:
+            db.rollback()
+            raise
+
+        return ActivityService._format_study_session(session)
+
+    @staticmethod
+    def complete_study_session(
+        db: Session,
+        session_id: str,
+        user_id: str,
+        actual_duration_minutes: Optional[int] = None,
+        completed_at: Optional[datetime] = None,
+    ) -> Dict[str, Any]:
+        """
+        Completes an in-progress (or pending) study session.
+        Calculates or records actual study duration without overwriting planned duration.
+        Prevents duplicate completion.
+        """
+        session = db.scalar(
+            select(StudySession).where(StudySession.id == session_id, StudySession.user_id == user_id)
+        )
+        if not session:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Study session not found",
+            )
+
+        if session.status == "completed":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Study session is already completed",
+            )
+
+        if session.status not in ("in_progress", "pending"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot complete session with status '{session.status}'. Session must be 'in_progress' or 'pending'.",
+            )
+
+        if actual_duration_minutes is not None:
+            if actual_duration_minutes < 0 or actual_duration_minutes > 1440:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="actual_duration_minutes must be between 0 and 1440",
+                )
+
+        now_utc = completed_at or datetime.now(timezone.utc)
+        session.status = "completed"
+        session.completed_at = now_utc
+
+        if not session.started_at:
+            session.started_at = now_utc
+
+        if actual_duration_minutes is not None:
+            session.actual_duration_minutes = actual_duration_minutes
+        elif session.actual_duration_minutes is None:
+            session.actual_duration_minutes = _calc_minutes(session.completed_at, session.started_at)
+
+        try:
+            db.commit()
+            db.refresh(session)
+        except Exception:
+            db.rollback()
+            raise
+
+        return ActivityService._format_study_session(session)
+
+    @staticmethod
+    def abandon_study_session(
+        db: Session,
+        session_id: str,
+        user_id: str,
+        actual_duration_minutes: Optional[int] = None,
+        abandoned_at: Optional[datetime] = None,
+        reason: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Abandons an in-progress (or pending) study session.
+        Records study progress up to abandonment without falsely marking completed.
+        """
+        session = db.scalar(
+            select(StudySession).where(StudySession.id == session_id, StudySession.user_id == user_id)
+        )
+        if not session:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Study session not found",
+            )
+
+        if session.status == "completed":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot abandon an already completed study session",
+            )
+        if session.status == "abandoned":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Study session is already abandoned",
+            )
+
+        if actual_duration_minutes is not None:
+            if actual_duration_minutes < 0 or actual_duration_minutes > 1440:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="actual_duration_minutes must be between 0 and 1440",
+                )
+
+        now_utc = abandoned_at or datetime.now(timezone.utc)
+        session.status = "abandoned"
+        if not session.started_at:
+            session.started_at = now_utc
+
+        if actual_duration_minutes is not None:
+            session.actual_duration_minutes = actual_duration_minutes
+        elif session.actual_duration_minutes is None and session.started_at:
+            session.actual_duration_minutes = _calc_minutes(now_utc, session.started_at)
+
+        if reason:
+            session.ai_reason = f"Abandoned: {reason}"
+
+        try:
+            db.commit()
+            db.refresh(session)
+        except Exception:
+            db.rollback()
+            raise
+
+        return ActivityService._format_study_session(session)
 
     @staticmethod
     def delete_study_session(db: Session, session_id: str, user_id: str) -> None:
@@ -217,7 +519,11 @@ class ActivityService:
                 detail="Study session not found",
             )
         db.delete(session)
-        db.commit()
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
 
     # ==========================================================================
     # 2. QUIZ ATTEMPTS
@@ -274,6 +580,7 @@ class ActivityService:
                     "attempted_at": a.attempted_at,
                     "critic_evaluated": a.critic_evaluated,
                     "critic_notes": a.critic_notes,
+                    "idempotency_key": a.idempotency_key,
                     "created_at": a.attempted_at,
                 }
             )
@@ -306,6 +613,7 @@ class ActivityService:
             "attempted_at": a.attempted_at,
             "critic_evaluated": a.critic_evaluated,
             "critic_notes": a.critic_notes,
+            "idempotency_key": a.idempotency_key,
             "created_at": a.attempted_at,
         }
 
@@ -354,6 +662,47 @@ class ActivityService:
                 detail="score_percentage must be between 0 and 100",
             )
 
+        # Idempotency Check:
+        # If idempotency_key is provided, check if a record already exists for this student
+        idempotency_key = attempt_in.idempotency_key
+        if idempotency_key:
+            existing_attempt = db.scalar(
+                select(QuizAttempt).where(
+                    QuizAttempt.user_id == user_id,
+                    QuizAttempt.idempotency_key == idempotency_key,
+                )
+            )
+            if existing_attempt:
+                # Validate payload: same key + same payload returns existing attempt without re-updating topic
+                same_topic = existing_attempt.topic_id == attempt_in.topic_id
+                same_correct = existing_attempt.correct_answers == attempt_in.correct_answers
+                same_total = existing_attempt.total_questions == attempt_in.total_questions
+                same_score = abs(existing_attempt.score - score_val) < 1e-2
+
+                if same_topic and same_correct and same_total and same_score:
+                    return ActivityService.get_quiz_attempt_by_id(db, existing_attempt.id, user_id)
+                else:
+                    # Same key + different payload: return HTTP 409 Conflict
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="Idempotency key reused with different quiz attempt parameters",
+                    )
+
+        # If critic notes not supplied in request, invoke AI Critic Agent
+        if not attempt_in.critic_notes:
+            from app.services.agent_adapters import ai_agent_adapter
+            critique = ai_agent_adapter.evaluate_quiz_critique(
+                attempt_id="temp-id",
+                score=score_val,
+                accuracy=calculated_accuracy,
+                topic_context={"topic_id": topic.id, "name": topic.name, "total_questions": attempt_in.total_questions, "correct_answers": attempt_in.correct_answers},
+            )
+            critic_notes_val = critique.get("critic_notes")
+            critic_eval_val = True
+        else:
+            critic_notes_val = attempt_in.critic_notes
+            critic_eval_val = False
+
         new_attempt = QuizAttempt(
             user_id=user_id,
             topic_id=attempt_in.topic_id,
@@ -363,17 +712,51 @@ class ActivityService:
             total_questions=attempt_in.total_questions,
             correct_answers=attempt_in.correct_answers,
             attempted_at=attempt_in.attempted_at or datetime.now(timezone.utc),
-            critic_evaluated=False,
-            critic_notes=attempt_in.critic_notes,
+            critic_evaluated=critic_eval_val,
+            critic_notes=critic_notes_val,
+            idempotency_key=idempotency_key,
         )
         db.add(new_attempt)
 
-        # Automatically update topic mastery based on latest quiz score
+        # Update topic mastery and memory retention using ML model
+        from app.ml.retention_model import retention_model
         topic.mastery_score = round((topic.mastery_score * 0.7) + (score_val * 0.3), 1)
+        topic.decay_rate_lambda = retention_model.update_stability(
+            current_lambda=topic.decay_rate_lambda,
+            performance_score=score_val,
+        )
+        topic.retention_score = round(retention_model.calculate_retention(0.0, topic.decay_rate_lambda), 1)
         topic.last_revised = datetime.now(timezone.utc)
+        topic.next_revision = datetime.now(timezone.utc)
 
-        db.commit()
-        db.refresh(new_attempt)
+        try:
+            db.commit()
+            db.refresh(new_attempt)
+        except Exception as e:
+            db.rollback()
+            # Handle concurrent duplicate submission race conditions:
+            # If rollback was caused by unique constraint violation on (user_id, idempotency_key),
+            # retrieve the existing record and validate it.
+            if idempotency_key:
+                existing_after_race = db.scalar(
+                    select(QuizAttempt).where(
+                        QuizAttempt.user_id == user_id,
+                        QuizAttempt.idempotency_key == idempotency_key,
+                    )
+                )
+                if existing_after_race:
+                    same_topic = existing_after_race.topic_id == attempt_in.topic_id
+                    same_correct = existing_after_race.correct_answers == attempt_in.correct_answers
+                    same_total = existing_after_race.total_questions == attempt_in.total_questions
+                    same_score = abs(existing_after_race.score - score_val) < 1e-2
+
+                    if same_topic and same_correct and same_total and same_score:
+                        return ActivityService.get_quiz_attempt_by_id(db, existing_after_race.id, user_id)
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="Idempotency key reused with different quiz attempt parameters",
+                    )
+            raise
         return ActivityService.get_quiz_attempt_by_id(db, new_attempt.id, user_id)
 
     # ==========================================================================
@@ -498,8 +881,12 @@ class ActivityService:
             topic.retention_score = rev_in.retention_score
         topic.last_revised = datetime.now(timezone.utc)
 
-        db.commit()
-        db.refresh(new_rev)
+        try:
+            db.commit()
+            db.refresh(new_rev)
+        except Exception:
+            db.rollback()
+            raise
         return ActivityService.get_revision_by_id(db, new_rev.id, user_id)
 
     # ==========================================================================

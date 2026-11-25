@@ -1,46 +1,11 @@
 import pytest
 from datetime import datetime, timezone
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.orm import Session
 
 from app.main import app
 from app.db.base import Base
 from app.db.session import get_db
-
-test_engine = create_engine(
-    "sqlite:///:memory:",
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
-
-
-@pytest.fixture(scope="function")
-def db_session() -> Session:
-    Base.metadata.create_all(bind=test_engine)
-    session = TestingSessionLocal()
-    try:
-        yield session
-    finally:
-        session.rollback()
-        session.close()
-        Base.metadata.drop_all(bind=test_engine)
-
-
-@pytest.fixture(scope="function")
-def client(db_session: Session) -> TestClient:
-    def override_get_db():
-        try:
-            yield db_session
-        finally:
-            pass
-
-    app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as test_client:
-        yield test_client
-    app.dependency_overrides.clear()
 
 
 @pytest.fixture(scope="function")
@@ -181,40 +146,35 @@ def test_task_status_toggle_and_reschedule(client: TestClient, user_a_auth: dict
 # ==============================================================================
 
 def test_recommendations_workflow_and_feedback(
-    client: TestClient, user_a_auth: dict, user_b_auth: dict, setup_curriculum: dict
+    client: TestClient, db_session: Session, user_a_auth: dict, user_b_auth: dict, setup_curriculum: dict
 ):
     subject_id = setup_curriculum["subject_id"]
     topic_id = setup_curriculum["topic_id"]
 
     # Manually seed a recommendation in DB for User A
     from app.models.entities import Recommendation
-    with TestingSessionLocal() as session:
-        rec = Recommendation(
-            user_id="user_a_temp",  # Will be resolved
-            subject_id=subject_id,
-            topic_id=topic_id,
-            agent_element="Performance Element",
-            type="retention_decay",
-            priority="high",
-            title="Revise CNN Filters",
-            reason_type="Forgetting Curve",
-            reason_detail="Retention estimated at 55% after 5 days of decay.",
-            suggested_slot="Evening",
-            estimated_duration_minutes=45,
-            status="pending",
-        )
-
-    # Let's use the DB session directly through client
     from app.core.security import decode_access_token
     token_str = user_a_auth["Authorization"].split(" ")[1]
     user_a_id = decode_access_token(token_str)
 
-    with TestingSessionLocal() as session:
-        rec.user_id = user_a_id
-        session.add(rec)
-        session.commit()
-        session.refresh(rec)
-        rec_id = rec.id
+    rec = Recommendation(
+        user_id=user_a_id,
+        subject_id=subject_id,
+        topic_id=topic_id,
+        agent_element="Performance Element",
+        type="retention_decay",
+        priority="high",
+        title="Revise CNN Filters",
+        reason_type="Forgetting Curve",
+        reason_detail="Retention estimated at 55% after 5 days of decay.",
+        suggested_slot="Evening",
+        estimated_duration_minutes=45,
+        status="pending",
+    )
+    db_session.add(rec)
+    db_session.commit()
+    db_session.refresh(rec)
+    rec_id = rec.id
 
     # 1. Fetch recommendations list
     list_res = client.get("/api/recommendations", headers=user_a_auth)

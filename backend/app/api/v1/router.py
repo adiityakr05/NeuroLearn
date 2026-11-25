@@ -12,6 +12,7 @@ from app.api.v1.endpoints import (
     planner,
     recommendations,
     dashboard,
+    spaced_repetition,
 )
 
 api_router = APIRouter()
@@ -27,6 +28,7 @@ api_router.include_router(quizzes.router, prefix="/quiz-attempts", tags=["Quiz A
 api_router.include_router(revisions.router, prefix="/revision-history", tags=["Revision History"])
 api_router.include_router(analytics.router, prefix="/analytics", tags=["Progress & Analytics"])
 api_router.include_router(planner.router, prefix="/study-plan", tags=["Study Planner"])
+api_router.include_router(spaced_repetition.router, prefix="/spaced-repetition", tags=["Spaced Repetition"])
 api_router.include_router(recommendations.router, prefix="/recommendations", tags=["AI Recommendations"])
 api_router.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboard"])
 

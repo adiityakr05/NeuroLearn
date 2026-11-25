@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Header, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -19,13 +19,18 @@ router = APIRouter()
 )
 def record_quiz_attempt(
     attempt_in: QuizAttemptCreate,
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key", description="Optional client UUID for idempotent submission"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
     Records a quiz attempt for the current student.
     Validates total_questions, correct_answers, and score percentage bounds.
+    Supports optional Idempotency-Key HTTP header for duplicate prevention.
     """
+    effective_key = idempotency_key or attempt_in.idempotency_key
+    if effective_key:
+        attempt_in.idempotency_key = effective_key
     return activity_service.create_quiz_attempt(db, current_user.id, attempt_in)
 
 

@@ -12,14 +12,16 @@ sys.path.insert(0, str(current_dir))
 # Import NeuroLearn configuration and database Base + Models
 from app.core.config import settings
 from app.db.base import Base
+from app.db.session import normalize_database_url
 import app.models  # Ensures all models are registered with Base.metadata
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
 
-# Overwrite sqlalchemy.url dynamically from app settings
-config.set_main_option("sqlalchemy.url", settings.SQLALCHEMY_DATABASE_URI)
+# Overwrite sqlalchemy.url dynamically from app settings using normalized PostgreSQL URL
+normalized_url = normalize_database_url(settings.SQLALCHEMY_DATABASE_URI)
+config.set_main_option("sqlalchemy.url", normalized_url)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

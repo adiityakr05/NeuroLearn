@@ -1,0 +1,31 @@
+services:
+  # FastAPI Backend Web Service
+  - type: web
+    name: neurolearn-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: SQLALCHEMY_DATABASE_URI
+        fromDatabase:
+          name: neurolearn-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "120"
+      - key: BACKEND_CORS_ORIGINS
+        sync: false
+
+databases:
+  # Managed PostgreSQL Database
+  - name: neurolearn-db
+    databaseName: neurolearn
+    user: neurolearn_user
+    plan: free

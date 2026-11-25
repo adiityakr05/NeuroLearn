@@ -164,7 +164,9 @@ class StudySession(Base):
     repetition_cycle: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)   # e.g. "Cycle 2 (3-Day Gap)"
     is_overdue: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     ai_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)                 # Performance Element rationale
+    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    actual_duration_minutes: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=get_utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=get_utc_now, onupdate=get_utc_now, nullable=False
@@ -201,6 +203,11 @@ class QuizAttempt(Base):
     attempted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=get_utc_now, nullable=False)
     critic_evaluated: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     critic_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    idempotency_key: Mapped[Optional[str]] = mapped_column(String(64), index=True, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "idempotency_key", name="uq_user_quiz_idempotency"),
+    )
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="quiz_attempts")

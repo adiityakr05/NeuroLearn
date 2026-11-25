@@ -7,6 +7,5 @@ class HealthResponse(BaseModel):
     version: str
     project: str
     database: str
-    debug: bool
 
     model_config = ConfigDict(from_attributes=True)
