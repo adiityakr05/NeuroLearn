@@ -67,7 +67,7 @@ async def generate_quiz_questions(
 
     # 2. Fallback to ProblemGenerator + Fallback Question Bank
     topic_ctx = TopicContext(
-        topic_id=topic.id,
+        id=topic.id,
         subject_id=topic.subject_id,
         subject_name=subject.name if subject else "Subject",
         name=topic.name,
