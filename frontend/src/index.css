@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased font-sans;
+  }
+}
+
+@keyframes auth-orb-float {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(24px, -18px, 0) scale(1.06);
+  }
+}
+
+.auth-gradient-bg {
+  background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 35%, #e0e7ff 70%, #fdf2f8 100%);
+}
+
+.auth-orb {
+  animation: auth-orb-float 16s ease-in-out infinite;
+}
+
+.auth-orb-delayed {
+  animation: auth-orb-float 20s ease-in-out infinite reverse;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-orb,
+  .auth-orb-delayed {
+    animation: none;
+  }
+}
