@@ -263,7 +263,7 @@ export const studyService = {
     return api.delete(`/subjects/${subjectId}/topics/${topicId}`);
   },
 
-  async toggleTopicCompletion(subjectId, topicId) {
+  async toggleTopicCompletion(subjectId, topicId, completed) {
     if (API_CONFIG.useMock.subjects) {
       await new Promise((resolve) => setTimeout(resolve, 150));
       activeSubjects = activeSubjects.map((s) => {
@@ -278,7 +278,8 @@ export const studyService = {
       return { success: true };
     }
 
-    return api.post(`/subjects/${subjectId}/topics/${topicId}/toggle`);
+    const res = await api.patch(`/topics/${topicId}`, { completed });
+    return normalizers.topic(res);
   },
 
   // ==========================================
@@ -349,6 +350,48 @@ export const studyService = {
   // ==========================================
   // 7. QUIZ SUBMISSION MODULE (WITH IDEMPOTENCY)
   // ==========================================
+  async createStudySession(sessionData) {
+    const res = await api.post('/study-sessions', sessionData);
+    return normalizers.studySession(res);
+  },
+
+  async deleteStudySession(sessionId) {
+    return api.delete(`/study-sessions/${sessionId}`);
+  },
+
+  async generateQuiz(topicId, difficulty = 'Medium', numQuestions = 5) {
+    return api.post('/quiz-attempts/generate', {
+      topic_id: topicId,
+      difficulty,
+      num_questions: numQuestions,
+    });
+  },
+
+  async getQuizAttempts(topicId = null) {
+    const query = topicId ? `?topic_id=${topicId}` : '';
+    return api.get(`/quiz-attempts${query}`);
+  },
+
+  async getNotifications() {
+    return api.get('/notifications');
+  },
+
+  async markNotificationRead(id) {
+    return api.patch(`/notifications/${id}/read`);
+  },
+
+  async markAllNotificationsRead() {
+    return api.patch('/notifications/read-all');
+  },
+
+  async dismissNotification(id) {
+    return api.delete(`/notifications/${id}`);
+  },
+
+  async getYearlyActivity(year = new Date().getFullYear(), dailyGoalMinutes = 120) {
+    return api.get(`/dashboard/activity?year=${year}&daily_goal_minutes=${dailyGoalMinutes}`);
+  },
+
   async submitQuizAttempt(quizData, idempotencyKey = null) {
     // Generate a client UUID for every new quiz submission if not explicitly provided
     const key = idempotencyKey || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `quiz_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`);

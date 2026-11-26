@@ -137,7 +137,7 @@ export default function Login() {
                     setEmail(e.target.value);
                     if (errors.email) setErrors({ ...errors, email: null });
                   }}
-                  placeholder="e.g. aditya.kumar@college.edu"
+                  placeholder=""
                   className={`w-full pl-10 pr-4 py-2.5 bg-slate-50 border rounded-xl text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 transition ${
                     errors.email
                       ? 'border-rose-400 focus:ring-rose-200'
@@ -176,7 +176,7 @@ export default function Login() {
                     setPassword(e.target.value);
                     if (errors.password) setErrors({ ...errors, password: null });
                   }}
-                  placeholder="••••••••"
+                  placeholder=""
                   className={`w-full pl-10 pr-10 py-2.5 bg-slate-50 border rounded-xl text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 transition ${
                     errors.password
                       ? 'border-rose-400 focus:ring-rose-200'

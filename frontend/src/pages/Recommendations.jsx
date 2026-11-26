@@ -7,8 +7,10 @@ import LearningElementView from '../components/recommendations/LearningElementVi
 import ProblemGeneratorView from '../components/recommendations/ProblemGeneratorView';
 import AgentActivityTimeline from '../components/recommendations/AgentActivityTimeline';
 import { studyService } from '../services/studyService';
+import { useTimer } from '../context/TimerContext';
 
 export default function Recommendations() {
+  const { startTimer } = useTimer();
   const [data, setData] = useState(null);
   const [activeTab, setActiveTab] = useState('performance');
   const [loading, setLoading] = useState(true);
@@ -18,8 +20,27 @@ export default function Recommendations() {
     try {
       setLoading(true);
       setError(null);
-      const res = await studyService.getRecommendationsHubData();
-      setData(res);
+      let res = await studyService.getRecommendationsHubData();
+      let active = res?.activeRecommendations || res?.performanceRecommendations || [];
+      if (active.length === 0) {
+        await studyService.generateRecommendations().catch(() => {});
+        res = await studyService.getRecommendationsHubData();
+        active = res?.activeRecommendations || res?.performanceRecommendations || [];
+      }
+      const normalized = active.map((r) => ({
+        ...r,
+        subject: r.subject || r.subject_name || 'Subject',
+        topic: r.topic || r.topic_name || r.title,
+        reasonType: r.reasonType || r.reason_type || 'retention_decay',
+        reasonDetail: r.reasonDetail || r.reason_detail || '',
+        durationMinutes: r.durationMinutes || r.estimated_duration_minutes || 30,
+        retentionScore: r.retentionScore ?? r.retention_score ?? 70,
+        examUrgency: r.examUrgency || r.suggested_slot || 'Scheduled',
+      }));
+      setData({
+        ...res,
+        performanceRecommendations: normalized,
+      });
     } catch (err) {
       setError(err.message || 'Failed to load recommendations hub');
     } finally {
@@ -33,15 +54,27 @@ export default function Recommendations() {
 
   const handleAcceptRecommendation = async (recId) => {
     try {
-      await studyService.acceptRecommendation(recId);
+      const rec = data?.performanceRecommendations?.find((r) => r.id === recId);
+      if (rec && startTimer) {
+        await startTimer({
+          subjectId: rec.subject_id,
+          subjectName: rec.subject,
+          topicId: rec.topic_id,
+          topicName: rec.topic || rec.title,
+          title: rec.title,
+          durationMinutes: rec.durationMinutes || 30,
+          recommendationId: rec.id,
+        });
+      } else {
+        await studyService.acceptRecommendation(recId);
+      }
       setData((prev) => {
         if (!prev) return prev;
         const updated = prev.performanceRecommendations.filter((r) => r.id !== recId);
         return { ...prev, performanceRecommendations: updated };
       });
-      alert('Recommendation Accepted: Your daily study agenda has been updated.');
     } catch (err) {
-      alert('Error accepting recommendation: ' + err.message);
+      alert('Error starting recommendation: ' + err.message);
     }
   };
 

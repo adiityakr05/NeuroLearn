@@ -139,7 +139,10 @@ export default function Subjects() {
 
   const handleToggleTopic = async (subjId, topicId) => {
     try {
-      await studyService.toggleTopicCompletion(subjId, topicId);
+      const subj = subjects.find((s) => s.id === subjId);
+      const topic = subj?.topics?.find((t) => t.id === topicId);
+      const nextCompleted = topic ? !topic.completed : true;
+      await studyService.toggleTopicCompletion(subjId, topicId, nextCompleted);
       await fetchSubjects();
     } catch (err) {
       alert('Error toggling topic: ' + err.message);

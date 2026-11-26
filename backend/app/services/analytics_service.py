@@ -792,11 +792,34 @@ class AnalyticsService:
                 }
             )
 
-        # 5. revisionFrequency
-        revisionFrequency = [
-            {"week": f"Week {i+1}", "completed": 3, "missed": 0, "compliance": 100}
-            for i in range(min(5, max(1, window_days // 7)))
-        ]
+        # 5. revisionFrequency (computed from actual study_sessions in window)
+        num_weeks = min(5, max(1, window_days // 7))
+        start_str = start_dt.strftime("%Y-%m-%d")
+        end_str = end_dt.strftime("%Y-%m-%d")
+        window_sessions = list(
+            db.scalars(
+                select(StudySession).where(
+                    StudySession.user_id == user_id,
+                    StudySession.date >= start_str,
+                    StudySession.date <= end_str,
+                )
+            ).all()
+        )
+        revisionFrequency = []
+        for i in range(num_weeks):
+            w_start = (start_dt + timedelta(days=i * 7)).strftime("%Y-%m-%d")
+            w_end = (start_dt + timedelta(days=(i + 1) * 7 - 1)).strftime("%Y-%m-%d")
+            w_sess = [s for s in window_sessions if w_start <= s.date <= w_end]
+            w_comp = sum(1 for s in w_sess if s.status == "completed")
+            w_missed = sum(1 for s in w_sess if s.status in ("abandoned", "pending") and s.date < end_str)
+            w_total = w_comp + w_missed
+            w_compliance = round((w_comp / w_total) * 100.0, 1) if w_total > 0 else 0.0
+            revisionFrequency.append({
+                "week": f"Week {i+1}",
+                "completed": w_comp,
+                "missed": w_missed,
+                "compliance": w_compliance,
+            })
 
         # 6. overdueList
         overdueList = [

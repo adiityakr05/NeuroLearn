@@ -1,6 +1,7 @@
 <div align="center">
 
 # 🧠 NeuroLearn
+
 ### *Your AI-Powered Adaptive Learning Companion*
 
 [![React 19](https://img.shields.io/badge/React-19.3-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)

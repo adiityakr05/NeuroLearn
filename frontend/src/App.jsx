@@ -1,6 +1,8 @@
 import React, { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { TimerProvider } from './context/TimerContext';
+import StudyTimerWidget from './components/common/StudyTimerWidget';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import AppLayout from './components/layout/AppLayout';
 
@@ -15,6 +17,7 @@ const StudyPlanner = lazy(() => import('./pages/StudyPlanner'));
 const Subjects = lazy(() => import('./pages/Subjects'));
 const Analytics = lazy(() => import('./pages/Analytics'));
 const Recommendations = lazy(() => import('./pages/Recommendations'));
+const QuizPractice = lazy(() => import('./pages/QuizPractice'));
 
 function PageFallback() {
   return (
@@ -30,7 +33,8 @@ function PageFallback() {
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <TimerProvider>
+        <BrowserRouter>
         <Suspense fallback={<PageFallback />}>
           <Routes>
             {/* Public Routes */}
@@ -49,6 +53,7 @@ export default function App() {
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="planner" element={<StudyPlanner />} />
               <Route path="subjects" element={<Subjects />} />
+              <Route path="practice" element={<QuizPractice />} />
               <Route path="analytics" element={<Analytics />} />
               <Route path="recommendations" element={<Recommendations />} />
             </Route>
@@ -57,7 +62,9 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
+        <StudyTimerWidget />
       </BrowserRouter>
-    </AuthProvider>
+    </TimerProvider>
+  </AuthProvider>
   );
 }

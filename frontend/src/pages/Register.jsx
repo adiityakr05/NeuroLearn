@@ -127,7 +127,7 @@ export default function Register() {
                     setFullName(e.target.value);
                     if (errors.fullName) setErrors({ ...errors, fullName: null });
                   }}
-                  placeholder="e.g. Aditya Kumar"
+                  placeholder=""
                   className={`w-full pl-10 pr-4 py-2.5 bg-slate-50 border rounded-xl text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 transition ${
                     errors.fullName
                       ? 'border-rose-400 focus:ring-rose-200'
@@ -154,7 +154,7 @@ export default function Register() {
                     setEmail(e.target.value);
                     if (errors.email) setErrors({ ...errors, email: null });
                   }}
-                  placeholder="e.g. aditya.kumar@college.edu"
+                  placeholder=""
                   className={`w-full pl-10 pr-4 py-2.5 bg-slate-50 border rounded-xl text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 transition ${
                     errors.email
                       ? 'border-rose-400 focus:ring-rose-200'
@@ -178,7 +178,7 @@ export default function Register() {
                   type="text"
                   value={program}
                   onChange={(e) => setProgram(e.target.value)}
-                  placeholder="e.g. B.Tech Computer Science & AI"
+                  placeholder=""
                   className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600"
                 />
               </div>
@@ -198,7 +198,7 @@ export default function Register() {
                     setPassword(e.target.value);
                     if (errors.password) setErrors({ ...errors, password: null });
                   }}
-                  placeholder="Min. 6 characters"
+                  placeholder=""
                   className={`w-full pl-10 pr-10 py-2.5 bg-slate-50 border rounded-xl text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 transition ${
                     errors.password
                       ? 'border-rose-400 focus:ring-rose-200'
@@ -232,7 +232,7 @@ export default function Register() {
                     setConfirmPassword(e.target.value);
                     if (errors.confirmPassword) setErrors({ ...errors, confirmPassword: null });
                   }}
-                  placeholder="Re-enter password"
+                  placeholder=""
                   className={`w-full pl-10 pr-4 py-2.5 bg-slate-50 border rounded-xl text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 transition ${
                     errors.confirmPassword
                       ? 'border-rose-400 focus:ring-rose-200'

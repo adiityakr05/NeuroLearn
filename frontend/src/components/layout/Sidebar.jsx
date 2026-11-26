@@ -17,6 +17,7 @@ import { useAuth } from '../../context/AuthContext';
 const navItems = [
   { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
   { name: 'Adaptive Planner', path: '/planner', icon: CalendarCheck },
+  { name: 'Practice & Quiz', path: '/practice', icon: BookOpen },
   { name: 'Subjects & Topics', path: '/subjects', icon: BookOpen },
   { name: 'Performance Analytics', path: '/analytics', icon: LineChart },
   { name: 'AI Recommendations', path: '/recommendations', icon: Sparkles, badge: '4 New' },

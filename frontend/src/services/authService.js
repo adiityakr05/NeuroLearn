@@ -6,6 +6,12 @@ const TOKEN_KEY = 'neurolearn_token';
 const USER_KEY = 'neurolearn_user';
 
 export const authService = {
+  // Non-blocking warmup ping for Render Free Tier cold starts
+  warmupServer() {
+    if (API_CONFIG.useMock.auth) return Promise.resolve();
+    return api.get('/health', { timeout: 30000 }).catch(() => {});
+  },
+
   // Login method supporting both mock and real API
   async login({ email, password, rememberMe }) {
     if (API_CONFIG.useMock.auth) {
@@ -25,8 +31,8 @@ export const authService = {
       return { user, token: mockToken };
     }
 
-    // Real API integration
-    const res = await api.post('/auth/login', { email, password });
+    // Real API integration (35s timeout to accommodate Render cold starts)
+    const res = await api.post('/auth/login', { email, password }, { timeout: 35000 });
     const token = res.accessToken || res.access_token || res.token;
     const user = normalizers.user(res.user);
 
@@ -54,16 +60,20 @@ export const authService = {
       return { user, token: mockToken };
     }
 
-    // Real API integration
-    const res = await api.post('/auth/register', {
-      full_name: fullName,
-      email,
-      password,
-      program,
-    });
+    // Real API integration (35s timeout to accommodate Render cold starts)
+    const res = await api.post(
+      '/auth/register',
+      {
+        full_name: fullName,
+        email,
+        password,
+        program,
+      },
+      { timeout: 35000 }
+    );
 
     // Auto-login to obtain JWT token after registration
-    const loginRes = await api.post('/auth/login', { email, password });
+    const loginRes = await api.post('/auth/login', { email, password }, { timeout: 35000 });
     const token = loginRes.accessToken || loginRes.access_token || loginRes.token;
     const user = normalizers.user(loginRes.user || res);
 

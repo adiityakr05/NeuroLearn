@@ -1,14 +1,165 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, Query, Header, status
+from fastapi import APIRouter, Depends, Query, Header, status, HTTPException
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+from sqlalchemy import select
 
 from app.db.session import get_db
 from app.api.deps import get_current_user
-from app.models.entities import User
+from app.models.entities import User, Topic, Subject
 from app.schemas.entities import QuizAttemptCreate, QuizAttemptResponse
 from app.services.activity_service import activity_service
+from app.agents.problem_generator import problem_generator
+from app.agents.schemas import TopicContext
 
 router = APIRouter()
+
+
+class QuizGenerateRequest(BaseModel):
+    topic_id: str
+    difficulty: str = Field("Medium", pattern="^(Easy|Medium|Hard)$")
+    num_questions: int = Field(5, ge=1, le=15)
+
+
+@router.post(
+    "/generate",
+    summary="Generate practice/diagnostic MCQ questions for a topic",
+)
+def generate_quiz_questions(
+    req: QuizGenerateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Generates MCQ practice questions for a topic using ProblemGenerator,
+    with a clearly labeled deterministic fallback bank if needed.
+    """
+    topic = db.scalar(
+        select(Topic)
+        .join(Subject, Topic.subject_id == Subject.id)
+        .where(Topic.id == req.topic_id, Subject.user_id == current_user.id)
+    )
+    if not topic:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Topic not found",
+        )
+
+    subject = db.scalar(select(Subject).where(Subject.id == topic.subject_id))
+    topic_ctx = TopicContext(
+        topic_id=topic.id,
+        subject_id=topic.subject_id,
+        subject_name=subject.name if subject else "Subject",
+        name=topic.name,
+        difficulty=req.difficulty,
+        mastery_score=topic.mastery_score,
+        retention_score=topic.retention_score,
+        decay_rate_lambda=topic.decay_rate_lambda,
+        completed=topic.completed,
+    )
+
+    probes = []
+    source = "ProblemGenerator"
+    try:
+        probes = problem_generator.generate_for_topic(topic_ctx, count=req.num_questions)
+    except Exception:
+        probes = []
+
+    questions = []
+    for idx, p in enumerate(probes[: req.num_questions]):
+        opts = getattr(p, "options", None) or [
+            f"Core principle of {topic.name}",
+            f"Unrelated concept outside {topic.name}",
+            f"Partial approximation of {topic.name}",
+            f"Opposite assumption to {topic.name}",
+        ]
+        questions.append({
+            "id": f"pg_{idx+1}",
+            "question": getattr(p, "prompt", None) or getattr(p, "question", f"Question {idx+1} on {topic.name}"),
+            "options": opts,
+            "correctIndex": getattr(p, "correct_index", 0),
+            "explanation": getattr(p, "explanation", f"Reviews key {req.difficulty.lower()}-tier concepts in {topic.name}."),
+            "source": source,
+        })
+
+    # Fallback bank if ProblemGenerator returned fewer questions than requested
+    if len(questions) < req.num_questions:
+        fallback_templates = [
+            (
+                f"Which statement best describes the fundamental concept of {topic.name}?",
+                [
+                    f"It governs the core mechanism and behavior within {topic.name}.",
+                    f"It only applies when {topic.name} is completely omitted.",
+                    "It is an unrelated historical footnote.",
+                    "It contradicts standard principles in this subject.",
+                ],
+                0,
+                f"Understanding the core mechanism of {topic.name} is essential for {req.difficulty} mastery.",
+            ),
+            (
+                f"When applying {topic.name} ({req.difficulty} level) to a problem, what is the primary factor to evaluate first?",
+                [
+                    "The boundary conditions and governing constraints of the topic.",
+                    "Ignoring all input parameters.",
+                    "Assuming constant output regardless of state.",
+                    "Skipping verification steps.",
+                ],
+                0,
+                "Evaluating governing constraints first prevents common conceptual errors.",
+            ),
+            (
+                f"What is a common misconception when studying {topic.name}?",
+                [
+                    "Confusing surface-level memorization with underlying causal relationships.",
+                    "Practicing active recall at spaced intervals.",
+                    "Testing understanding with diagnostic problems.",
+                    "Connecting the topic to prerequisite concepts.",
+                ],
+                0,
+                "Active recall and causal understanding outperform rote memorization.",
+            ),
+            (
+                f"How does {topic.name} relate to overall mastery in {subject.name if subject else 'this subject'}?",
+                [
+                    "It builds foundational intuition needed for advanced problem solving.",
+                    "It has no connection to any other topic.",
+                    "It only matters if never reviewed.",
+                    "It replaces the need for practice.",
+                ],
+                0,
+                f"{topic.name} is a key building block in {subject.name if subject else 'the curriculum'}.",
+            ),
+            (
+                f"Which study strategy is most effective for retaining {topic.name} long-term?",
+                [
+                    "Spaced repetition combined with self-testing before retention decays.",
+                    "Single-session cramming without review.",
+                    "Passive re-reading without attempting problems.",
+                    "Avoiding difficult practice questions.",
+                ],
+                0,
+                "Spaced active recall slows the Ebbinghaus forgetting rate.",
+            ),
+        ]
+        while len(questions) < req.num_questions:
+            t_idx = len(questions) % len(fallback_templates)
+            q_text, q_opts, q_ans, q_exp = fallback_templates[t_idx]
+            questions.append({
+                "id": f"fb_{len(questions)+1}",
+                "question": q_text,
+                "options": q_opts,
+                "correctIndex": q_ans,
+                "explanation": q_exp,
+                "source": "Fallback Question Bank",
+            })
+
+    return {
+        "topic_id": topic.id,
+        "topic_name": topic.name,
+        "difficulty": req.difficulty,
+        "source": source if probes else "Fallback Question Bank",
+        "questions": questions,
+    }
 
 
 @router.post(

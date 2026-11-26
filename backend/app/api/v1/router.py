@@ -13,6 +13,7 @@ from app.api.v1.endpoints import (
     recommendations,
     dashboard,
     spaced_repetition,
+    notifications,
 )
 
 api_router = APIRouter()
@@ -31,9 +32,11 @@ api_router.include_router(planner.router, prefix="/study-plan", tags=["Study Pla
 api_router.include_router(spaced_repetition.router, prefix="/spaced-repetition", tags=["Spaced Repetition"])
 api_router.include_router(recommendations.router, prefix="/recommendations", tags=["AI Recommendations"])
 api_router.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboard"])
+api_router.include_router(notifications.router, prefix="/notifications", tags=["Notifications"])
 
 # Future domain routers will be registered here incrementally:
 # api_router.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboard"])
+api_router.include_router(notifications.router, prefix="/notifications", tags=["Notifications"])
 # api_router.include_router(subjects.router, prefix="/subjects", tags=["Subjects"])
 # api_router.include_router(planner.router, prefix="/study-plan", tags=["Planner"])
 # api_router.include_router(analytics.router, prefix="/analytics", tags=["Analytics"])
