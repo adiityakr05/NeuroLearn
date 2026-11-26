@@ -120,7 +120,9 @@ export default function Dashboard() {
             Welcome back, {studentName} 👋
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            Your retention score is steady at <strong className="text-slate-800">82%</strong>. The Critic element adjusted 2 tasks today for maximum exam impact.
+            {stats.overallProgress !== null && stats.overallProgress !== undefined
+              ? <>Predicted retention is <strong className="text-slate-800">{stats.overallProgress}%</strong> across your active topics.</>
+              : 'Add subjects and complete a diagnostic quiz to calibrate your retention model.'}
           </p>
         </div>
 
@@ -173,10 +175,14 @@ export default function Dashboard() {
         <StatCard
           title="Today's Study Hours"
           value={`${stats.todayStudyHours}h`}
-          subtitle={`Target: ${stats.todayTargetHours}h / day`}
+          subtitle={`Goal: ${stats.todayTargetHours}h / day`}
           icon={Clock}
           colorScheme="indigo"
-          trend="+45m vs yesterday"
+          trend={
+            stats.yesterdayDeltaMinutes !== null && stats.yesterdayDeltaMinutes !== undefined
+              ? `${stats.yesterdayDeltaMinutes >= 0 ? '+' : ''}${stats.yesterdayDeltaMinutes}m vs yesterday`
+              : undefined
+          }
         />
         <StatCard
           title="Completed Sessions"
@@ -186,17 +192,16 @@ export default function Dashboard() {
           colorScheme="emerald"
         />
         <StatCard
-          title="Overall Retention Progress"
-          value={`${stats.overallProgress}%`}
-          subtitle="Based on spaced repetition checks"
+          title="Predicted Retention"
+          value={stats.overallProgress !== null && stats.overallProgress !== undefined ? `${stats.overallProgress}%` : 'Not enough data'}
+          subtitle="Ebbinghaus model estimate"
           icon={TrendingUp}
           colorScheme="cyan"
-          trend="+3.2% this week"
         />
         <StatCard
           title="Study Streak"
-          value={`${stats.activeStreak} Days`}
-          subtitle="Consistent study habit"
+          value={`${stats.activeStreak} ${stats.activeStreak === 1 ? 'Day' : 'Days'}`}
+          subtitle={stats.activeStreak > 0 ? 'Consecutive active days' : 'Complete a session to start'}
           icon={Flame}
           colorScheme="amber"
         />
