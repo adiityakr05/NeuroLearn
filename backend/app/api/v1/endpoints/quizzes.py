@@ -9,6 +9,7 @@ from app.api.deps import get_current_user
 from app.models.entities import User, Topic, Subject
 from app.schemas.entities import QuizAttemptCreate, QuizAttemptResponse
 from app.services.activity_service import activity_service
+from app.services.gemini_quiz_service import gemini_quiz_service
 from app.agents.problem_generator import problem_generator
 from app.agents.schemas import TopicContext
 
@@ -18,21 +19,21 @@ router = APIRouter()
 class QuizGenerateRequest(BaseModel):
     topic_id: str
     difficulty: str = Field("Medium", pattern="^(Easy|Medium|Hard)$")
-    num_questions: int = Field(5, ge=1, le=15)
+    num_questions: int = Field(5, ge=1, le=20)
 
 
 @router.post(
     "/generate",
     summary="Generate practice/diagnostic MCQ questions for a topic",
 )
-def generate_quiz_questions(
+async def generate_quiz_questions(
     req: QuizGenerateRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
-    Generates MCQ practice questions for a topic using ProblemGenerator,
-    with a clearly labeled deterministic fallback bank if needed.
+    Generates MCQ practice questions for a topic using Google Gemini (if configured),
+    falling back to ProblemGenerator / Fallback Question Bank when Gemini is unavailable.
     """
     topic = db.scalar(
         select(Topic)
@@ -46,6 +47,25 @@ def generate_quiz_questions(
         )
 
     subject = db.scalar(select(Subject).where(Subject.id == topic.subject_id))
+    subject_name = subject.name if subject else "Subject"
+
+    # 1. Attempt live Google Gemini generation
+    gemini_questions = await gemini_quiz_service.generate_questions(
+        subject=subject_name,
+        topic=topic.name,
+        difficulty=req.difficulty,
+        num_questions=req.num_questions,
+    )
+    if gemini_questions:
+        return {
+            "topic_id": topic.id,
+            "topic_name": topic.name,
+            "difficulty": req.difficulty,
+            "source": gemini_questions[0]["source"],
+            "questions": gemini_questions,
+        }
+
+    # 2. Fallback to ProblemGenerator + Fallback Question Bank
     topic_ctx = TopicContext(
         topic_id=topic.id,
         subject_id=topic.subject_id,

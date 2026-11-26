@@ -192,9 +192,10 @@ export default function QuizPractice() {
               onChange={(e) => setNumQuestions(Number(e.target.value))}
               className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white"
             >
-              <option value={3}>3 Questions</option>
               <option value={5}>5 Questions</option>
               <option value={10}>10 Questions</option>
+              <option value={15}>15 Questions</option>
+              <option value={20}>20 Questions</option>
             </select>
           </div>
         </div>
@@ -206,7 +207,7 @@ export default function QuizPractice() {
             className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
           >
             <Play className="w-4 h-4" />
-            {generating ? 'Generating Quiz...' : quizData ? 'Regenerate Quiz' : 'Start Quiz'}
+            {generating ? 'AI is generating your questions...' : quizData ? 'Regenerate Quiz' : 'Start Quiz'}
           </button>
         </div>
       </div>

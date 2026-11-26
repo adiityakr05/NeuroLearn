@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     # Database: SQLite fallback for zero-setup local dev, PostgreSQL ready for production
     SQLALCHEMY_DATABASE_URI: str = "sqlite:///./neurolearn.db"
 
+    # Google Gemini AI Quiz Generation (optional; falls back to ProblemGenerator if unset)
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-2.5-flash"
+
     @model_validator(mode="after")
     def validate_production_security(self) -> "Settings":
         env_lower = self.ENVIRONMENT.strip().lower()
